@@ -82,7 +82,7 @@ const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d); /
 const hm = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 let autoMatches = [];
 const prevScores = new Map();
-async function refreshMatches() {
+async function fetchEspn() {
   const out = [];
   const today = ymd(new Date());
   for (let i = 0; i < 2; i++) {
@@ -115,6 +115,83 @@ async function refreshMatches() {
       } catch (err) { console.error('Maç alınamadı', code, err.message); }
     }
   }
+  return out;
+}
+
+// ---- API-Football (isteğe bağlı; APIFOOTBALL_KEY tanımlıysa kullanılır, değilse/kota bitince ESPN) ----
+const AF_KEY = process.env.APIFOOTBALL_KEY || '';
+const AF_BASE = process.env.APIFOOTBALL_BASE || 'https://v3.football.api-sports.io';
+const AF_DAILY_LIMIT = Number(process.env.APIFOOTBALL_DAILY_LIMIT) || 95; // ücretsiz plan: 100/gün
+const AF_LEAGUES = { 2: 'Şampiyonlar Ligi', 3: 'Avrupa Ligi', 203: 'Süper Lig', 204: 'TFF 1. Lig', 140: 'La Liga', 39: 'Premier Lig', 135: 'Serie A', 78: 'Bundesliga', 61: 'Ligue 1' };
+const AF_LIVE = new Set(['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE', 'INT', 'SUSP']);
+const AF_FINAL = new Set(['FT', 'AET', 'PEN']);
+const AF_PRE = new Set(['NS', 'TBD']);
+const af = { used: { day: '', n: 0 }, fixtures: new Map(), scheduleAt: 0, liveAt: 0, failUntil: 0, wasLive: new Set() };
+let matchSource = 'espn';
+async function afGet(pathq) {
+  const day = ymd(new Date());
+  if (af.used.day !== day) af.used = { day, n: 0 };
+  if (af.used.n >= AF_DAILY_LIMIT) throw new Error('günlük kota doldu');
+  af.used.n++;
+  const r = await fetch(AF_BASE + pathq, { headers: { 'x-apisports-key': AF_KEY } });
+  const j = await r.json();
+  const errs = j.errors && (Array.isArray(j.errors) ? j.errors : Object.values(j.errors));
+  if (errs && errs.length) throw new Error(JSON.stringify(j.errors));
+  return j.response || [];
+}
+function afKeep(f) { return AF_LEAGUES[f.league.id] ? f : null; }
+async function afMatches() {
+  const now = Date.now();
+  if (now - af.scheduleAt > 3 * 3600 * 1000) {
+    const fresh = new Map();
+    for (let i = 0; i < 2; i++) {
+      const d = ymd(new Date(now + i * 86400000));
+      for (const f of await afGet(`/fixtures?date=${d}&timezone=${encodeURIComponent(TZ)}`)) if (afKeep(f)) fresh.set(f.fixture.id, f);
+    }
+    af.fixtures = fresh; af.scheduleAt = now;
+  }
+  const soon = [...af.fixtures.values()].some(f => AF_LIVE.has(f.fixture.status.short) ||
+    (AF_PRE.has(f.fixture.status.short) && new Date(f.fixture.date).getTime() - now < 10 * 60 * 1000 && now - new Date(f.fixture.date).getTime() < 3 * 3600 * 1000));
+  if (soon && now - af.liveAt > (Number(process.env.APIFOOTBALL_LIVE_MS) || 3 * 60 * 1000)) {
+    const live = await afGet('/fixtures?live=all');
+    const liveIds = new Set();
+    for (const f of live) if (afKeep(f)) { af.fixtures.set(f.fixture.id, f); liveIds.add(f.fixture.id); }
+    for (const id of af.wasLive) if (!liveIds.has(id)) {
+      const [fin] = await afGet(`/fixtures?id=${id}`);
+      if (fin) af.fixtures.set(id, fin);
+    }
+    af.wasLive = liveIds; af.liveAt = now;
+  }
+  const today = ymd(new Date());
+  const out = [];
+  for (const f of af.fixtures.values()) {
+    const st = f.fixture.status.short, when = new Date(f.fixture.date);
+    const live = AF_LIVE.has(st), final = AF_FINAL.has(st);
+    if (!live && !final && !AF_PRE.has(st)) continue;
+    if (final && ymd(when) !== today) continue;
+    const g = (f.events || []).filter(e => e.type === 'Goal' && e.detail !== 'Missed Penalty').pop();
+    const el = f.fixture.status.elapsed, ex = f.fixture.status.extra;
+    out.push({
+      id: 'af' + f.fixture.id, league: AF_LEAGUES[f.league.id], home: f.teams.home.name, away: f.teams.away.name,
+      ts: when.getTime(), day: ymd(when) === today ? 'Bugün' : 'Yarın', time: hm(when), live, final,
+      hs: AF_PRE.has(st) ? null : String(f.goals.home ?? 0), as: AF_PRE.has(st) ? null : String(f.goals.away ?? 0),
+      clock: live ? (st === 'HT' ? 'HT' : el != null ? `${el}${ex ? '+' + ex : ''}'` : null) : null,
+      lastGoal: g ? { min: `${g.time.elapsed}${g.time.extra ? '+' + g.time.extra : ''}'`, player: (g.player && g.player.name) || '', own: g.detail === 'Own Goal', pen: g.detail === 'Penalty' } : null,
+    });
+  }
+  const order = Object.values(AF_LEAGUES);
+  return out.filter(m => ymd(new Date(m.ts)) <= ymd(new Date(Date.now() + 86400000))).sort((a, b) => order.indexOf(a.league) - order.indexOf(b.league));
+}
+async function fetchMatches() {
+  if (AF_KEY && Date.now() > af.failUntil) {
+    try { const m = await afMatches(); matchSource = 'api-football'; return m; }
+    catch (e) { console.error('API-Football hatası, ESPN kullanılıyor:', e.message); af.failUntil = Date.now() + 10 * 60 * 1000; }
+  }
+  matchSource = 'espn';
+  return fetchEspn();
+}
+async function refreshMatches() {
+  const out = await fetchMatches();
   const seen = new Set();
   const rank = m => (m.live ? 0 : m.final ? 2 : 1);
   autoMatches = out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => rank(a) - rank(b) || a.ts - b.ts);
@@ -175,6 +252,7 @@ const upload = multer({
 const changed = () => { save(); broadcast({ type: 'state', state: publicState() }); };
 
 app.get('/api/admin/db', (_, res) => res.json(db));
+app.get('/api/admin/source', (_, res) => res.json({ source: matchSource, apiFootballKey: !!AF_KEY, used: af.used, limit: AF_DAILY_LIMIT }));
 app.post('/api/admin/videos', upload.array('files'), (req, res) => {
   for (const f of req.files) db.videos.push({ id: uid(), file: f.filename, name: f.originalname, type: f.mimetype.startsWith('image/') ? 'image' : 'video' });
   changed(); res.json({ ok: true });
