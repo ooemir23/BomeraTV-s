@@ -20,6 +20,22 @@ let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], du
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
+let weather = null;
+async function refreshWeather() {
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.01&longitude=28.98&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FIstanbul&forecast_days=1');
+    const j = await r.json();
+    weather = {
+      temp: j.current.temperature_2m, feels: j.current.apparent_temperature, code: j.current.weather_code,
+      wind: j.current.wind_speed_10m, day: !!j.current.is_day,
+      max: j.daily.temperature_2m_max[0], min: j.daily.temperature_2m_min[0],
+    };
+    broadcast({ type: 'weather', weather });
+  } catch (e) { console.error('Hava durumu alınamadı:', e.message); }
+}
+refreshWeather();
+setInterval(refreshWeather, 15 * 60 * 1000);
+
 let rates = { usd: null, eur: null, gold: null, updated: null };
 async function refreshRates() {
   try {
@@ -110,6 +126,7 @@ const publicState = () => ({
     ...autoMatches,
   ].slice(0, 30),
   rates,
+  weather,
 });
 app.get('/api/state', (_, res) => res.json(publicState()));
 app.use('/uploads', express.static(UPLOAD_DIR));

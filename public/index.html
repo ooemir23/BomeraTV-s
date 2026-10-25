@@ -40,15 +40,21 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 .row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row b{font-weight:700;font-size:2vh;min-width:2ch;text-align:right}
 .row.lose{color:var(--mute)}
-#rates{flex:none;background:linear-gradient(160deg,rgba(201,149,92,.16),rgba(255,255,255,.03));border:1px solid rgba(201,149,92,.35);border-radius:16px;padding:1.4vh 1vw 1.2vh}
-#rhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1vh;font-size:1.2vh;letter-spacing:.3em;text-transform:uppercase;color:var(--soft);font-weight:600}
-#rhead small{letter-spacing:.08em;color:var(--mute);font-weight:400;text-transform:none;font-size:1.2vh}
-#rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7vw}
-.rt{background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:12px;padding:1.2vh .3vw 1.1vh;text-align:center}
-.ic{width:4.2vh;height:4.2vh;margin:0 auto .7vh;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.2vh;font-weight:600;color:#1b1d1d;background:linear-gradient(145deg,#e6b87d,#906538)}
-.rt small{display:block;font-size:1.2vh;letter-spacing:.25em;color:var(--accent2);font-weight:600;margin-bottom:.4vh}
-.rt strong{font-size:2.6vh;font-weight:600;white-space:nowrap}
-.rt strong i{font-style:normal;font-size:1.6vh;color:var(--mute);margin-left:.2vw;font-weight:400}
+#rates{flex:none;background:linear-gradient(160deg,rgba(201,149,92,.16),rgba(255,255,255,.03));border:1px solid rgba(201,149,92,.35);border-radius:14px;padding:1.1vh 1vw;display:flex;flex-direction:column;gap:.9vh}
+#wx{display:flex;align-items:center;gap:.9vw}
+#wx .wi{font-size:4.6vh;line-height:1}
+#wx .wt{font-size:4vh;font-weight:600;line-height:1}
+#wx .wd{flex:1;min-width:0}
+#wx .wd b{display:block;font-size:1.7vh;font-weight:600;color:var(--white)}
+#wx .wd small{display:block;font-size:1.3vh;color:var(--mute);margin-top:.3vh;letter-spacing:.04em}
+#wx .city{font-size:1.2vh;letter-spacing:.28em;color:var(--accent2);font-weight:600;text-transform:uppercase;text-align:right}
+#wx .city small{display:block;letter-spacing:.04em;color:var(--mute);font-weight:400;text-transform:none;margin-top:.3vh;font-size:1.2vh}
+#rrow{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);padding-top:.9vh}
+#rrow div{text-align:center;border-right:1px solid var(--line)}
+#rrow div:last-child{border:0}
+#rrow small{display:block;font-size:1.1vh;letter-spacing:.22em;color:var(--accent2);font-weight:600}
+#rrow strong{font-size:2.1vh;font-weight:600;white-space:nowrap}
+#rrow strong i{font-style:normal;font-size:1.3vh;color:var(--mute);margin-left:.15vw;font-weight:400}
 #ticker{grid-column:1/3;display:flex;align-items:stretch;background:linear-gradient(180deg,#171919,#0e0f0f);border-top:1px solid rgba(201,149,92,.55);overflow:hidden;position:relative}
 #tlabel{flex:none;display:flex;align-items:center;gap:.7vw;padding:0 2vw;background:linear-gradient(90deg,#906538,#b07a45);color:#fff;font-size:2vh;font-weight:700;letter-spacing:.22em;text-transform:uppercase;position:relative;z-index:2;box-shadow:1vw 0 2vw rgba(0,0,0,.5)}
 #tlabel::before{content:"";width:1vh;height:1vh;border-radius:50%;background:#fff;animation:pulse 1.2s infinite}
@@ -211,15 +217,28 @@ function setState(s) {
   setMatches(s.matches);
   setTicker(s.matches);
   setRates(s.rates);
+  if (s.weather) setWeather(s.weather);
 }
-function setRates(r) {
+let lastRates = {}, lastWeather = null;
+const WMO = c => c === 0 ? ['Açık', '☀️', '🌙'] : c <= 2 ? ['Parçalı bulutlu', '⛅', '☁️'] : c === 3 ? ['Kapalı', '☁️', '☁️']
+  : c <= 48 ? ['Sisli', '🌫️', '🌫️'] : c <= 57 ? ['Çisenti', '🌦️', '🌦️'] : c <= 67 ? ['Yağmurlu', '🌧️', '🌧️']
+  : c <= 77 ? ['Karlı', '❄️', '❄️'] : c <= 82 ? ['Sağanak', '🌧️', '🌧️'] : c <= 86 ? ['Kar sağanağı', '❄️', '❄️'] : ['Gök gürültülü', '⛈️', '⛈️'];
+function renderPanel() {
+  const r = lastRates, w = lastWeather;
   const f = (x, d = 2) => x ? x.toLocaleString('tr-TR', {minimumFractionDigits: d, maximumFractionDigits: d}) : '--';
   const t = r.updated ? new Date(r.updated).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul'}) : '';
-  const tile = (ic, code, val) => `<div class="rt"><div class="ic">${ic}</div><small>${code}</small><strong>${val}<i>₺</i></strong></div>`;
-  document.getElementById('rates').innerHTML =
-    `<div id="rhead"><span>Piyasalar</span><small>${t ? 'Güncelleme ' + t : ''}</small></div><div id="rgrid">` +
-    tile('$', 'DOLAR', f(r.usd)) + tile('€', 'EURO', f(r.eur)) + tile('Au', 'GR ALTIN', f(r.gold, 0)) + '</div>';
+  let wx = '';
+  if (w) {
+    const [txt, dayIc, nightIc] = WMO(w.code);
+    wx = `<div id="wx"><span class="wi">${w.day ? dayIc : nightIc}</span><span class="wt">${Math.round(w.temp)}°</span>
+      <div class="wd"><b>${txt}</b><small>His. ${Math.round(w.feels)}° · ${Math.round(w.wind)} km/s</small></div>
+      <div class="city">İstanbul<small>${Math.round(w.min)}° / ${Math.round(w.max)}°</small></div></div>`;
+  }
+  document.getElementById('rates').innerHTML = wx +
+    `<div id="rrow"><div><small>USD</small><strong>${f(r.usd)}<i>₺</i></strong></div><div><small>EUR</small><strong>${f(r.eur)}<i>₺</i></strong></div><div><small>ALTIN</small><strong>${f(r.gold, 0)}<i>₺</i></strong></div></div>`;
 }
+function setRates(r) { lastRates = r; renderPanel(); }
+function setWeather(w) { lastWeather = w; renderPanel(); }
 let bt;
 function birthday(names, dur) {
   const b = document.getElementById('bday'), p = document.getElementById('btxt');
@@ -235,6 +254,7 @@ function connect() {
     if (m.type === 'version') { if (window.__build && window.__build !== m.build) location.reload(); window.__build = m.build; }
     else if (m.type === 'state') setState(m.state);
     else if (m.type === 'rates') setRates(m.rates);
+    else if (m.type === 'weather') setWeather(m.weather);
     else if (m.type === 'birthday') birthday(m.names, m.duration);
   };
   ws.onclose = () => setTimeout(connect, 3000);
