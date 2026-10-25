@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [] };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
@@ -67,17 +67,25 @@ async function refreshRates() {
 refreshRates();
 setInterval(refreshRates, 10 * 60 * 1000);
 
-const LEAGUES = [
-  ['uefa.champions', 'Şampiyonlar Ligi'],
-  ['uefa.europa', 'Avrupa Ligi'],
-  ['tur.1', 'Süper Lig'],
-  ['tur.2', 'TFF 1. Lig'],
-  ['esp.1', 'La Liga'],
-  ['eng.1', 'Premier Lig'],
-  ['ita.1', 'Serie A'],
-  ['ger.1', 'Bundesliga'],
-  ['fra.1', 'Ligue 1'],
+const CATALOG = [
+  ['tur.1', 'Süper Lig', 'Türkiye'], ['tur.2', 'TFF 1. Lig', 'Türkiye'],
+  ['uefa.champions', 'Şampiyonlar Ligi', 'Avrupa Kupaları'], ['uefa.europa', 'Avrupa Ligi', 'Avrupa Kupaları'],
+  ['uefa.europa.conf', 'Konferans Ligi', 'Avrupa Kupaları'], ['uefa.nations', 'UEFA Uluslar Ligi', 'Avrupa Kupaları'],
+  ['uefa.champions_qual', 'Şampiyonlar Ligi Eleme', 'Avrupa Kupaları'], ['uefa.euro', 'Avrupa Şampiyonası', 'Avrupa Kupaları'],
+  ['esp.1', 'La Liga', 'İspanya'], ['esp.2', 'La Liga 2', 'İspanya'],
+  ['eng.1', 'Premier Lig', 'İngiltere'], ['eng.2', 'Championship', 'İngiltere'], ['eng.fa', 'FA Cup', 'İngiltere'],
+  ['ita.1', 'Serie A', 'İtalya'], ['ita.2', 'Serie B', 'İtalya'],
+  ['ger.1', 'Bundesliga', 'Almanya'], ['ger.2', '2. Bundesliga', 'Almanya'],
+  ['fra.1', 'Ligue 1', 'Fransa'], ['fra.2', 'Ligue 2', 'Fransa'],
+  ['ned.1', 'Hollanda Eredivisie', 'Diğer Ülkeler'], ['por.1', 'Portekiz Ligi', 'Diğer Ülkeler'],
+  ['bel.1', 'Belçika Ligi', 'Diğer Ülkeler'], ['sco.1', 'İskoçya Ligi', 'Diğer Ülkeler'],
+  ['gre.1', 'Yunanistan Süper Ligi', 'Diğer Ülkeler'], ['aut.1', 'Avusturya Ligi', 'Diğer Ülkeler'],
+  ['sui.1', 'İsviçre Ligi', 'Diğer Ülkeler'], ['rus.1', 'Rusya Ligi', 'Diğer Ülkeler'],
+  ['usa.1', 'MLS', 'Diğer Ülkeler'], ['bra.1', 'Brezilya Serie A', 'Diğer Ülkeler'], ['arg.1', 'Arjantin Ligi', 'Diğer Ülkeler'],
+  ['fifa.world', 'Dünya Kupası', 'Diğer Ülkeler'],
 ];
+const DEFAULT_LEAGUES = ['uefa.champions', 'uefa.europa', 'tur.1', 'tur.2', 'esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1'];
+const enabledLeagues = () => CATALOG.filter(([code]) => (db.leagues || DEFAULT_LEAGUES).includes(code)).map(([code, label]) => [code, label]);
 const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d); // YYYY-MM-DD
 const hm = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 let autoMatches = [];
@@ -94,7 +102,7 @@ async function refreshMatches() {
   // varsayılan skor tablosu (gece yarısını geçen canlı maçlar dahil) + bugün + yarın
   const queries = ['', ...[0, 1].map(i => '?dates=' + ymd(new Date(Date.now() + i * 86400000)).replace(/-/g, ''))];
   for (const q of queries) {
-    for (const [code, label] of LEAGUES) {
+    await Promise.all(enabledLeagues().map(async ([code, label]) => {
       try {
         const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${code}/scoreboard${q}`);
         const j = await r.json();
@@ -122,7 +130,7 @@ async function refreshMatches() {
           });
         }
       } catch (err) { console.error('Maç alınamadı', code, err.message); }
-    }
+    }));
   }
   const seen = new Set();
   const rank = m => (m.live ? 0 : m.final ? 2 : 1);
@@ -164,7 +172,7 @@ const publicState = () => ({
   reviews: (db.reviews || []).filter(r => r.rating >= 4).map(({ id, author, rating, text }) => ({ id, author, rating, text })),
   matches: [
     ...db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)).map(m => ({ ...m, day: 'Bugün' })),
-    ...autoMatches,
+    ...autoMatches.filter(m => enabledLeagues().some(([, label]) => label === m.league)),
   ].slice(0, 30),
   rates,
   weather,
@@ -184,6 +192,16 @@ const upload = multer({
 const changed = () => { save(); broadcast({ type: 'state', state: publicState() }); };
 
 app.get('/api/admin/db', (_, res) => res.json(db));
+app.get('/api/admin/leagues', (_, res) => res.json({
+  catalog: CATALOG.map(([code, label, group]) => ({ code, label, group })),
+  enabled: enabledLeagues().map(([code]) => code),
+}));
+app.put('/api/admin/leagues', (req, res) => {
+  const valid = new Set(CATALOG.map(([code]) => code));
+  db.leagues = (req.body.enabled || []).filter(c => valid.has(c));
+  changed(); res.json({ ok: true });
+  refreshMatches();
+});
 app.post('/api/admin/videos', upload.array('files'), (req, res) => {
   for (const f of req.files) db.videos.push({ id: uid(), file: f.filename, name: f.originalname, type: f.mimetype.startsWith('image/') ? 'image' : 'video' });
   changed(); res.json({ ok: true });

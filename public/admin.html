@@ -1,64 +1,375 @@
 <!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin</title>
+<title>Bomera TV · Yönetim</title>
 <style>
-body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#14100c;color:#f5ecd9}
-section{background:#1e1812;border:1px solid #3a2f20;padding:1rem 1.2rem;margin-bottom:1rem;border-radius:8px}
-h2{margin-top:0}li{margin:.3rem 0}input,button{padding:.4rem .6rem;margin:.1rem}
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+:root{--bg:#161818;--panel:#1f2222;--panel2:#262a2a;--line:rgba(255,255,255,.09);--text:#f4f1ea;--mute:#9aa0a0;--accent:#906538;--accent2:#c9955c;--ok:#3ecf4a;--bad:#ee5b4f}
+*{box-sizing:border-box;margin:0}
+body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+button,input,select,textarea{font:inherit;color:inherit}
+/* kenar menü */
+#side{width:230px;flex:none;background:#101212;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+#brand{padding:6px 8px 18px}
+#brand img{width:100%;border-radius:8px;display:block}
+#brand small{display:block;margin-top:10px;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent2);text-align:center}
+.nav{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;color:var(--mute);font-weight:500;font-size:14px;border:0;background:none;text-align:left;width:100%}
+.nav:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.nav.on{background:linear-gradient(90deg,rgba(144,101,56,.35),rgba(144,101,56,.08));color:#fff}
+.nav .ic{width:22px;text-align:center;font-size:17px}
+.nav .badge{margin-left:auto;background:rgba(255,255,255,.1);border-radius:20px;padding:1px 9px;font-size:12px}
+#sidefoot{margin-top:auto;font-size:12px;color:var(--mute);padding:8px}
+#sidefoot a{color:var(--accent2);text-decoration:none}
+/* içerik */
+main{flex:1;min-width:0;padding:30px 36px 80px;max-width:1200px}
+h1{font-size:26px;font-weight:600;margin-bottom:4px}
+.sub{color:var(--mute);font-size:14px;margin-bottom:26px}
+section{display:none}
+section.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:20px}
+.card h2{font-size:16px;font-weight:600;margin-bottom:4px}
+.card .hint{color:var(--mute);font-size:13px;margin-bottom:16px;line-height:1.5}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+.stat{background:var(--panel2);border-radius:14px;padding:18px}
+.stat b{display:block;font-size:30px;font-weight:700;color:var(--accent2)}
+.stat span{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+/* form öğeleri */
+input[type=text],input[type=number],input[type=time],select,textarea{background:#151717;border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--accent2)}
+textarea{resize:vertical}
+label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-spacing:.05em}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.row>.fld{flex:1;min-width:140px}
+.btn{background:linear-gradient(135deg,var(--accent2),var(--accent));border:0;border-radius:10px;padding:10px 18px;font-weight:600;cursor:pointer;color:#fff;transition:.15s;white-space:nowrap}
+.btn:hover{filter:brightness(1.1)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+.btn.ghost:hover{border-color:var(--accent2)}
+.btn.danger{background:transparent;border:1px solid rgba(238,91,79,.4);color:var(--bad)}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:8px}
+.empty{color:var(--mute);text-align:center;padding:30px;border:1px dashed var(--line);border-radius:12px;font-size:14px}
+/* medya */
+#drop{border:2px dashed rgba(201,149,92,.45);border-radius:16px;padding:34px;text-align:center;cursor:pointer;transition:.2s;background:rgba(144,101,56,.06)}
+#drop.over,#drop:hover{background:rgba(144,101,56,.18);border-color:var(--accent2)}
+#drop b{display:block;font-size:16px;margin-bottom:6px}
+#drop span{color:var(--mute);font-size:13px}
+#uploads{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.up{background:var(--panel2);border-radius:10px;padding:10px 14px;font-size:13px}
+.up .bar{height:6px;background:rgba(255,255,255,.1);border-radius:6px;margin-top:8px;overflow:hidden}
+.up .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .2s}
+#media{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;margin-top:18px}
+.tile{background:var(--panel2);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.thumb{position:relative;aspect-ratio:16/9;background:#000}
+.thumb video,.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .no{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);border-radius:20px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.thumb .ty{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);border-radius:20px;padding:3px 10px;font-size:11px}
+.tile .meta{padding:10px 12px}
+.tile .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px}
+.tile .act{display:flex;gap:6px}
+/* ligler */
+.grp{margin-bottom:18px}
+.grp h3{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:30px;background:var(--panel2);border:1px solid var(--line);cursor:pointer;font-size:14px;user-select:none;transition:.15s}
+.chip:hover{border-color:var(--accent2)}
+.chip.on{background:linear-gradient(135deg,rgba(201,149,92,.35),rgba(144,101,56,.25));border-color:var(--accent2);color:#fff}
+.chip .tick{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--mute);display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.chip.on .tick{background:var(--accent2);border-color:var(--accent2);color:#1b1d1d}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+/* liste satırları */
+.item{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--panel2);border-radius:12px;margin-bottom:8px}
+.item .body{flex:1;min-width:0}
+.item .body b{display:block;font-size:14px}
+.item .body span{color:var(--mute);font-size:13px;display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+.stars{color:#f5b73b;letter-spacing:2px;font-size:15px}
+.sw{position:relative;width:44px;height:24px;flex:none}
+.sw input{display:none}
+.sw i{position:absolute;inset:0;background:rgba(255,255,255,.15);border-radius:24px;transition:.2s;cursor:pointer}
+.sw i::after{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+i{background:var(--accent2)}
+.sw input:checked+i::after{transform:translateX(20px)}
+.times{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
+.time{display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:30px;padding:7px 8px 7px 14px;font-weight:600}
+.time button{background:rgba(255,255,255,.1);border:0;border-radius:50%;width:22px;height:22px;cursor:pointer;line-height:1}
+/* önizleme */
+#pv{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+#pv iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
+/* toast */
+#toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:50}
+.toast{background:#2b2f2f;border:1px solid var(--line);border-left:4px solid var(--ok);padding:12px 16px;border-radius:10px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.4);animation:in .25s}
+.toast.err{border-left-color:var(--bad)}
+@keyframes in{from{transform:translateY(10px);opacity:0}}
+@media(max-width:860px){
+  body{flex-direction:column}
+  #side{width:100%;height:auto;position:static;flex-direction:row;overflow-x:auto;padding:10px;gap:4px}
+  #brand,#sidefoot{display:none}
+  .nav{white-space:nowrap;width:auto}
+  main{padding:20px 16px 80px}
+  .g2{grid-template-columns:1fr}
+}
 </style></head><body>
-<h1 style="color:#906538">Kafe TV Admin</h1>
-<section><h2>Video ve Fotoğraflar</h2>
-  <input type="file" id="files" accept="video/*,image/*" multiple><button onclick="upload()">Yükle</button>
-  <p>Fotoğraf süresi (sn): <input id="imgsec" type="number" style="width:5em"><button onclick="api('PUT','/settings',{imageSeconds:$('imgsec').value})">Kaydet</button></p>
-  <ul id="videos"></ul></section>
-<section><h2>Maç Takvimi</h2><button onclick="api('POST','/goal/test')">Gol animasyonunu test et</button><p>Şampiyonlar Ligi, Avrupa Ligi, Süper Lig ve TFF 1. Lig maçları otomatik gelir. Aşağıdan ekstra maç ekleyebilirsiniz.</p>
-  <input id="mh" placeholder="Ev sahibi"><input id="ma" placeholder="Deplasman">
-  <input id="mt" placeholder="Saat (örn. 21:45)" size="14"><input id="ml" placeholder="Lig">
-  <button onclick="addMatch()">Ekle</button><ul id="matches"></ul></section>
-<section><h2>Google Yorumları</h2>
-  <p>Yalnızca 4 ve 5 yıldızlı yorumlar ekranda alt bantta gösterilir. Yorumu Google'dan kopyalayıp yapıştırın.</p>
-  <input id="ra" placeholder="Yorumcu adı">
-  <select id="rr"><option value="5">5 yıldız</option><option value="4">4 yıldız</option></select><br>
-  <textarea id="rt" rows="3" style="width:100%" placeholder="Yorum metni"></textarea><br>
-  <button onclick="addReview()">Ekle</button><ul id="reviews"></ul></section>
-<section><h2>Doğum Günü</h2>
-  <input id="bn" placeholder="İsim"><button onclick="addB()">Ekle</button>
-  <ul id="bdays"></ul>
-  <p>Gösterim saatleri (virgülle): <input id="times" placeholder="13:00,19:00">
-  Süre (sn): <input id="dur" type="number" style="width:5em"></p>
-  <button onclick="saveSchedule()">Kaydet</button>
-  <button onclick="api('POST','/birthday/fire')">Şimdi göster (test)</button></section>
+<aside id="side">
+  <div id="brand"><img src="/logo.png" alt="Bomera Lounge"><small>Yönetim Paneli</small></div>
+  <button class="nav on" data-tab="home"><span class="ic">▦</span>Genel Bakış</button>
+  <button class="nav" data-tab="media"><span class="ic">🎞</span>Medya<span class="badge" id="b-media">0</span></button>
+  <button class="nav" data-tab="matches"><span class="ic">⚽</span>Maçlar<span class="badge" id="b-matches">0</span></button>
+  <button class="nav" data-tab="reviews"><span class="ic">★</span>Yorumlar<span class="badge" id="b-reviews">0</span></button>
+  <button class="nav" data-tab="bday"><span class="ic">🎂</span>Doğum Günü<span class="badge" id="b-bday">0</span></button>
+  <div id="sidefoot"><a href="/" target="_blank">TV ekranını aç ↗</a></div>
+</aside>
+<main>
+
+<!-- GENEL BAKIŞ -->
+<section id="sec-home" class="on">
+  <h1>Genel Bakış</h1><p class="sub">Ekranda şu an gösterilenlerin özeti ve hızlı işlemler.</p>
+  <div class="grid g4" style="margin-bottom:20px">
+    <div class="stat"><b id="s-media">0</b><span>Video / Fotoğraf</span></div>
+    <div class="stat"><b id="s-leagues">0</b><span>Seçili Lig</span></div>
+    <div class="stat"><b id="s-reviews">0</b><span>Gösterilen Yorum</span></div>
+    <div class="stat"><b id="s-bday">0</b><span>Seçili Doğum Günü</span></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h2>Canlı Önizleme</h2><p class="hint">TV'de görünen ekranın küçültülmüş hâli. Değişiklikler burada da anında görünür.</p>
+      <div id="pv"><iframe src="/" id="pvf"></iframe></div></div>
+    <div class="card"><h2>Hızlı İşlemler</h2><p class="hint">Tüm TV'lerde anında test gösterimi başlatır.</p>
+      <div class="row">
+        <button class="btn" onclick="post('/goal/test','Gol animasyonu tüm TV\'lere gönderildi')">⚽ Gol animasyonunu test et</button>
+        <button class="btn" onclick="post('/birthday/fire','Doğum günü kutlaması gönderildi (seçili kişi yoksa görünmez)')">🎂 Doğum gününü şimdi göster</button>
+        <a class="btn ghost" href="/" target="_blank" style="text-decoration:none">📺 TV ekranını aç</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MEDYA -->
+<section id="sec-media">
+  <h1>Medya</h1><p class="sub">Ekranda sırayla gösterilen video ve fotoğraflar.</p>
+  <div class="card">
+    <div id="drop"><b>Dosyaları buraya sürükleyin</b><span>ya da tıklayıp seçin · video ve fotoğraf (birden fazla seçebilirsiniz)</span></div>
+    <input type="file" id="files" accept="video/*,image/*" multiple hidden>
+    <div id="uploads"></div>
+  </div>
+  <div class="card">
+    <h2>Gösterim Sırası</h2><p class="hint">Sıra soldan sağa, yukarıdan aşağıya doğrudur ve sürekli döner. Okları kullanarak sırayı değiştirebilirsiniz.</p>
+    <div class="row" style="margin-bottom:6px">
+      <div class="fld" style="max-width:220px"><label class="f">Fotoğraf ekranda kalma süresi (sn)</label><input type="number" id="imgsec" min="3" max="120"></div>
+      <button class="btn" onclick="saveImgSec()">Kaydet</button>
+    </div>
+    <div id="media-list"></div>
+  </div>
+</section>
+
+<!-- MAÇLAR -->
+<section id="sec-matches">
+  <h1>Maçlar</h1><p class="sub">Hangi liglerin maçları ve skorları ekranda gösterilsin? Seçimler anında kaydedilir.</p>
+  <div class="card">
+    <h2>Gösterilecek Ligler</h2>
+    <p class="hint">Seçili ligler sağ paneldeki maç sayfalarında ve alt skor bandında görünür. Hiç lig seçmezseniz otomatik maç gösterilmez.</p>
+    <div class="toolbar">
+      <button class="btn ghost sm" onclick="preset('all')">Tümünü seç</button>
+      <button class="btn ghost sm" onclick="preset('none')">Hepsini kaldır</button>
+      <button class="btn ghost sm" onclick="preset('tr')">Sadece Türkiye</button>
+      <button class="btn ghost sm" onclick="preset('top')">Türkiye + Avrupa Kupaları + Büyük 5</button>
+      <button class="btn ghost sm" onclick="preset('default')">Varsayılan</button>
+    </div>
+    <div id="leagues"></div>
+  </div>
+  <div class="card">
+    <h2>Elle Maç Ekle</h2><p class="hint">Otomatik listede olmayan bir maçı (örneğin özel bir etkinlik) buradan ekleyebilirsiniz.</p>
+    <div class="row">
+      <div class="fld"><label class="f">Ev sahibi</label><input type="text" id="mh"></div>
+      <div class="fld"><label class="f">Deplasman</label><input type="text" id="ma"></div>
+      <div class="fld" style="max-width:130px"><label class="f">Saat</label><input type="time" id="mt"></div>
+      <div class="fld"><label class="f">Lig / Etkinlik</label><input type="text" id="ml"></div>
+      <button class="btn" onclick="addMatch()">Ekle</button>
+    </div>
+    <div id="manual" style="margin-top:16px"></div>
+  </div>
+</section>
+
+<!-- YORUMLAR -->
+<section id="sec-reviews">
+  <h1>Yorumlar</h1><p class="sub">Videonun altındaki şeritte dönen müşteri yorumları. Sadece 4 ve 5 yıldız gösterilir.</p>
+  <div class="card">
+    <h2>Yorum Ekle</h2><p class="hint">Yorumu Google'dan kopyalayıp yapıştırın.</p>
+    <div class="row">
+      <div class="fld"><label class="f">Yorumcu adı</label><input type="text" id="ra"></div>
+      <div class="fld" style="max-width:160px"><label class="f">Puan</label><select id="rr"><option value="5">★★★★★ (5)</option><option value="4">★★★★☆ (4)</option></select></div>
+    </div>
+    <div style="margin:12px 0"><label class="f">Yorum metni</label><textarea id="rt" rows="3" maxlength="400"></textarea></div>
+    <button class="btn" onclick="addReview()">Yorumu ekle</button>
+  </div>
+  <div class="card"><h2>Mevcut Yorumlar</h2><div id="review-list" style="margin-top:12px"></div></div>
+</section>
+
+<!-- DOĞUM GÜNÜ -->
+<section id="sec-bday">
+  <h1>Doğum Günü</h1><p class="sub">Seçili kişiler için belirlenen saatlerde ekranın altında kutlama yazısı kayar.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h2>Kişiler</h2><p class="hint">Anahtarı açık olanlar kutlamaya dahil edilir.</p>
+      <div class="row" style="margin-bottom:14px">
+        <div class="fld"><label class="f">Yeni kişi</label><input type="text" id="bn" placeholder="Ad Soyad"></div>
+        <button class="btn" onclick="addB()">Ekle</button>
+      </div>
+      <div id="bday-list"></div>
+    </div>
+    <div class="card">
+      <h2>Gösterim Zamanları</h2><p class="hint">Kutlama her gün bu saatlerde başlar (Türkiye saati).</p>
+      <div class="times" id="times"></div>
+      <div class="row">
+        <div class="fld" style="max-width:150px"><label class="f">Saat ekle</label><input type="time" id="newtime"></div>
+        <button class="btn ghost" onclick="addTime()">+ Ekle</button>
+      </div>
+      <div class="row" style="margin:18px 0 6px">
+        <div class="fld" style="max-width:220px"><label class="f">Ekranda kalma süresi (sn)</label><input type="number" id="dur" min="5" max="300"></div>
+        <button class="btn" onclick="saveSchedule()">Kaydet</button>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+      <button class="btn ghost" onclick="post('/birthday/fire','Kutlama şimdi gönderildi')">🎂 Şimdi göster (test)</button>
+    </div>
+  </div>
+</section>
+
+</main>
+<div id="toasts"></div>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-async function api(method, path, body) {
-  await fetch('/api/admin' + path, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
-  load();
+let db = {}, L = { catalog: [], enabled: [] }, times = [], timesDirty = false;
+const DEFAULTS = ['uefa.champions','uefa.europa','tur.1','tur.2','esp.1','eng.1','ita.1','ger.1','fra.1'];
+
+function toast(msg, err) {
+  const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
+  $('toasts').appendChild(t); setTimeout(() => t.remove(), 3500);
 }
-async function upload() {
-  const fd = new FormData();
-  for (const f of $('files').files) fd.append('files', f);
-  await fetch('/api/admin/videos', { method: 'POST', body: fd });
-  $('files').value = ''; load();
+async function api(method, path, body, ok) {
+  try {
+    const r = await fetch('/api/admin' + path, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'İşlem başarısız (' + r.status + ')'); }
+    if (ok) toast(ok);
+    await load();
+    return true;
+  } catch (e) { toast(e.message, true); return false; }
 }
-const addMatch = () => api('POST', '/matches', { home: $('mh').value, away: $('ma').value, time: $('mt').value, league: $('ml').value });
-const addReview = () => api('POST', '/reviews', { author: $('ra').value, rating: $('rr').value, text: $('rt').value }).then(() => { $('ra').value = ''; $('rt').value = ''; });
-const addB = () => api('POST', '/birthdays', { name: $('bn').value });
-const saveSchedule = () => api('PUT', '/schedule', { times: $('times').value.split(',').map(s => s.trim()), duration: $('dur').value });
+const post = (path, ok) => api('POST', path, undefined, ok);
+
+/* sekmeler */
+document.querySelectorAll('.nav').forEach(b => b.onclick = () => show(b.dataset.tab));
+function show(tab) {
+  document.querySelectorAll('.nav').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === 'sec-' + tab));
+  location.hash = tab; if (tab === 'home') scalePv();
+}
+function scalePv() { const f = $('pvf'), w = $('pv').clientWidth; if (w) f.style.transform = `scale(${w / 1920})`; }
+addEventListener('resize', scalePv);
+
+/* medya */
+const drop = $('drop'), fileIn = $('files');
+drop.onclick = () => fileIn.click();
+fileIn.onchange = () => { uploadFiles([...fileIn.files]); fileIn.value = ''; };
+['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', ev => uploadFiles([...ev.dataTransfer.files]));
+function uploadFiles(files) {
+  files = files.filter(f => /^(video|image)\//.test(f.type));
+  if (!files.length) return toast('Yalnızca video ve fotoğraf dosyaları yüklenebilir', true);
+  (async () => { for (const f of files) await uploadOne(f); await load(); })();
+}
+function uploadOne(f) {
+  return new Promise(resolve => {
+    const row = document.createElement('div'); row.className = 'up';
+    row.innerHTML = `<div>${esc(f.name)} <span style="color:var(--mute)">· ${(f.size / 1048576).toFixed(1)} MB</span></div><div class="bar"><i></i></div>`;
+    $('uploads').appendChild(row);
+    const fd = new FormData(); fd.append('files', f);
+    const x = new XMLHttpRequest(); x.open('POST', '/api/admin/videos');
+    x.upload.onprogress = e => { if (e.lengthComputable) row.querySelector('i').style.width = (e.loaded / e.total * 100) + '%'; };
+    x.onload = () => { x.status < 300 ? toast(f.name + ' yüklendi') : toast(f.name + ' yüklenemedi', true); setTimeout(() => row.remove(), 800); resolve(); };
+    x.onerror = () => { toast(f.name + ' yüklenemedi', true); row.remove(); resolve(); };
+    x.send(fd);
+  });
+}
+function renderMedia() {
+  const list = db.videos || [];
+  $('media-list').innerHTML = list.length ? '<div id="media">' + list.map((v, i) => `<div class="tile">
+    <div class="thumb">${v.type === 'image' ? `<img src="/uploads/${v.file}" loading="lazy">` : `<video src="/uploads/${v.file}#t=0.5" preload="metadata" muted></video>`}
+      <span class="no">${i + 1}</span><span class="ty">${v.type === 'image' ? '🖼 Fotoğraf' : '🎬 Video'}</span></div>
+    <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>
+      <div class="act"><button class="btn ghost sm" ${i === 0 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">← Öne</button>
+      <button class="btn ghost sm" ${i === list.length - 1 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'down'})">Sona →</button>
+      <button class="btn danger sm" onclick="del('/videos/${v.id}','${esc(v.name).replace(/'/g, '')}')">Sil</button></div></div></div>`).join('') + '</div>'
+    : '<div class="empty">Henüz medya yok. Yukarıdan video veya fotoğraf yükleyin.</div>';
+}
+const saveImgSec = () => api('PUT', '/settings', { imageSeconds: $('imgsec').value }, 'Fotoğraf süresi kaydedildi');
+function del(path, name) { if (confirm(`"${name}" silinsin mi?`)) api('DELETE', path, undefined, 'Silindi'); }
+
+/* ligler */
+function renderLeagues() {
+  const groups = {};
+  for (const l of L.catalog) (groups[l.group] = groups[l.group] || []).push(l);
+  $('leagues').innerHTML = Object.entries(groups).map(([g, items]) => `<div class="grp"><h3>${esc(g)}</h3><div class="chips">` +
+    items.map(l => `<div class="chip ${L.enabled.includes(l.code) ? 'on' : ''}" onclick="toggleLeague('${l.code}')"><span class="tick">${L.enabled.includes(l.code) ? '✓' : ''}</span>${esc(l.label)}</div>`).join('') + '</div></div>').join('');
+}
+let saveTimer;
+function setLeagues(codes) {
+  L.enabled = codes; renderLeagues(); counts();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => { const ok = await api('PUT', '/leagues', { enabled: codes }); if (ok) toast('Lig seçimi kaydedildi'); }, 500);
+}
+const toggleLeague = c => setLeagues(L.enabled.includes(c) ? L.enabled.filter(x => x !== c) : [...L.enabled, c]);
+function preset(p) {
+  const all = L.catalog.map(l => l.code), by = g => L.catalog.filter(l => l.group === g).map(l => l.code);
+  setLeagues(p === 'all' ? all : p === 'none' ? [] : p === 'tr' ? by('Türkiye') : p === 'default' ? DEFAULTS
+    : [...by('Türkiye'), ...by('Avrupa Kupaları').slice(0, 3), 'esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1']);
+}
+function renderManual() {
+  const list = db.matches || [];
+  $('manual').innerHTML = list.length ? list.map(m => `<div class="item"><div class="body"><b>${esc(m.home)} – ${esc(m.away)}</b><span>${esc(m.time)}${m.league ? ' · ' + esc(m.league) : ''}</span></div>
+    <button class="btn danger sm" onclick="del('/matches/${m.id}','${esc(m.home + ' - ' + m.away).replace(/'/g, '')}')">Sil</button></div>`).join('') : '<div class="empty">Elle eklenmiş maç yok.</div>';
+}
+async function addMatch() {
+  const ok = await api('POST', '/matches', { home: $('mh').value.trim(), away: $('ma').value.trim(), time: $('mt').value, league: $('ml').value.trim() }, 'Maç eklendi');
+  if (ok) ['mh', 'ma', 'mt', 'ml'].forEach(i => $(i).value = '');
+}
+
+/* yorumlar */
+function renderReviews() {
+  const list = db.reviews || [];
+  $('review-list').innerHTML = list.length ? list.map(r => `<div class="item"><div class="body"><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span><b>${esc(r.author)}</b><span style="white-space:normal">${esc(r.text)}</span></div>
+    <button class="btn danger sm" onclick="del('/reviews/${r.id}','${esc(r.author).replace(/'/g, '')} yorumu')">Sil</button></div>`).join('') : '<div class="empty">Henüz yorum eklenmedi. Yorum yoksa ekranda şerit görünmez.</div>';
+}
+async function addReview() {
+  const ok = await api('POST', '/reviews', { author: $('ra').value.trim(), rating: $('rr').value, text: $('rt').value.trim() }, 'Yorum eklendi');
+  if (ok) { $('ra').value = ''; $('rt').value = ''; }
+}
+
+/* doğum günü */
+function renderBday() {
+  const list = db.birthdays || [];
+  $('bday-list').innerHTML = list.length ? list.map(b => `<div class="item"><label class="sw"><input type="checkbox" ${b.selected ? 'checked' : ''} onchange="api('PATCH','/birthdays/${b.id}',{selected:this.checked})"><i></i></label>
+    <div class="body"><b>${esc(b.name)}</b><span>${b.selected ? 'Kutlamaya dahil' : 'Kapalı'}</span></div>
+    <button class="btn danger sm" onclick="del('/birthdays/${b.id}','${esc(b.name).replace(/'/g, '')}')">Sil</button></div>`).join('') : '<div class="empty">Henüz kişi eklenmedi.</div>';
+  $('times').innerHTML = times.length ? times.map((t, i) => `<span class="time">${esc(t)}<button onclick="rmTime(${i})">×</button></span>`).join('') : '<span style="color:var(--mute);font-size:13px">Saat eklenmedi — otomatik gösterim yapılmaz.</span>';
+}
+const addTime = () => { const v = $('newtime').value; if (v && !times.includes(v)) { times = [...times, v].sort(); timesDirty = true; $('newtime').value = ''; renderBday(); } };
+const rmTime = i => { times = times.filter((_, j) => j !== i); timesDirty = true; renderBday(); };
+const saveSchedule = async () => { if (await api('PUT', '/schedule', { times, duration: $('dur').value }, 'Zamanlama kaydedildi')) timesDirty = false; };
+const addB = async () => { const ok = await api('POST', '/birthdays', { name: $('bn').value.trim() }, 'Kişi eklendi'); if (ok) $('bn').value = ''; };
+
+/* ortak */
+function counts() {
+  const sel = (db.birthdays || []).filter(b => b.selected).length;
+  const rev = (db.reviews || []).filter(r => r.rating >= 4).length;
+  $('b-media').textContent = $('s-media').textContent = (db.videos || []).length;
+  $('b-matches').textContent = $('s-leagues').textContent = L.enabled.length;
+  $('b-reviews').textContent = $('s-reviews').textContent = rev;
+  $('b-bday').textContent = $('s-bday').textContent = sel;
+}
 async function load() {
-  const db = await (await fetch('/api/admin/db')).json();
-  $('videos').innerHTML = db.videos.map(v => `<li>${v.type==='image'?'🖼':'🎬'} ${esc(v.name)}
-    <button onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">↑</button>
-    <button onclick="api('POST','/videos/${v.id}/move',{dir:'down'})">↓</button>
-    <button onclick="api('DELETE','/videos/${v.id}')">Sil</button></li>`).join('');
-  $('matches').innerHTML = db.matches.map(m => `<li>${esc(m.time)} ${esc(m.home)} - ${esc(m.away)} (${esc(m.league)})
-    <button onclick="api('DELETE','/matches/${m.id}')">Sil</button></li>`).join('');
-  $('reviews').innerHTML = (db.reviews || []).map(r => `<li>${'★'.repeat(r.rating)} <b>${esc(r.author)}</b>: ${esc(r.text)}
-    <button onclick="api('DELETE','/reviews/${r.id}')">Sil</button></li>`).join('');
-  $('bdays').innerHTML = db.birthdays.map(b => `<li><label><input type="checkbox" ${b.selected ? 'checked' : ''}
-    onchange="api('PATCH','/birthdays/${b.id}',{selected:this.checked})"> ${esc(b.name)}</label>
-    <button onclick="api('DELETE','/birthdays/${b.id}')">Sil</button></li>`).join('');
-  $('imgsec').value = db.imageSeconds; $('times').value = db.times.join(','); $('dur').value = db.duration;
+  const [d, l] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json())]);
+  db = d; L = l; if (!timesDirty) times = [...(db.times || [])];
+  $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
+  renderMedia(); renderLeagues(); renderManual(); renderReviews(); renderBday(); counts();
 }
-load();
+load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
 </script></body></html>
