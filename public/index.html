@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TV</title>
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif;overflow:hidden;cursor:none}
+#app{display:grid;grid-template-columns:1fr 26vw;grid-template-rows:1fr 9vh;height:100vh}
+video{width:100%;height:100%;object-fit:contain;background:#000;grid-row:1}
+#matches{background:#10151f;padding:2vh 1.2vw;overflow:hidden}
+#matches h2{font-size:2.4vh;color:#f5b301;margin-bottom:2vh;letter-spacing:.1em}
+.m{border-bottom:1px solid #263041;padding:1.6vh 0}
+.m small{color:#8ea0bd;font-size:1.8vh}
+.m div{font-size:2.6vh;margin-top:.4vh}
+.m b{color:#f5b301;float:right}
+#bar{grid-column:1/3;background:#0b0f17;border-top:3px solid #f5b301;position:relative;overflow:hidden;display:flex;align-items:center}
+#rates{display:flex;gap:6vw;padding:0 3vw;font-size:4vh;font-weight:600}
+#rates span em{font-style:normal;color:#f5b301;margin-right:.6em}
+#bday{position:absolute;inset:0;background:linear-gradient(90deg,#b0125a,#f5b301);display:none;align-items:center;overflow:hidden}
+#bday.on{display:flex}
+#bday p{white-space:nowrap;font-size:5vh;font-weight:700;padding-left:100%;animation:slide var(--d,20s) linear infinite}
+@keyframes slide{to{transform:translateX(-100%)}}
+</style></head><body>
+<div id="app">
+  <video id="v" autoplay muted playsinline></video>
+  <div id="matches"><h2>MAÇ TAKVİMİ</h2><div id="list"></div></div>
+  <div id="bar"><div id="rates"></div><div id="bday"><p id="btxt"></p></div></div>
+</div>
+<script>
+const v = document.getElementById('v');
+let videos = [], idx = 0, current = null;
+function play() {
+  if (!videos.length) return;
+  idx %= videos.length;
+  current = videos[idx].id;
+  v.src = videos[idx].url;
+  v.play().catch(() => {});
+}
+v.addEventListener('ended', () => { idx++; play(); });
+v.addEventListener('error', () => setTimeout(() => { idx++; play(); }, 2000));
+function setState(s) {
+  const ids = s.videos.map(x => x.id).join();
+  const changed = ids !== videos.map(x => x.id).join();
+  videos = s.videos;
+  if (changed) { const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
+  if (!v.src && videos.length) play();
+  document.getElementById('list').innerHTML = s.matches.map(m =>
+    `<div class="m"><small>${esc(m.league)}</small><div><b>${esc(m.time)}</b>${esc(m.home)} - ${esc(m.away)}</div></div>`).join('')
+    || '<div class="m"><small>Maç yok</small></div>';
+  setRates(s.rates);
+}
+function setRates(r) {
+  const f = x => x ? x.toFixed(2) : '--';
+  document.getElementById('rates').innerHTML = `<span><em>USD</em>₺${f(r.usd)}</span><span><em>EUR</em>₺${f(r.eur)}</span>`;
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let bt;
+function birthday(names, dur) {
+  const b = document.getElementById('bday'), p = document.getElementById('btxt');
+  p.textContent = '🎉 Doğum günün kutlu olsun ' + names.join(', ') + '! 🎂';
+  p.style.setProperty('--d', Math.max(10, dur / 2) + 's');
+  b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
+  clearTimeout(bt); bt = setTimeout(() => b.classList.remove('on'), dur * 1000);
+}
+function connect() {
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'state') setState(m.state);
+    else if (m.type === 'rates') setRates(m.rates);
+    else if (m.type === 'birthday') birthday(m.names, m.duration);
+  };
+  ws.onclose = () => setTimeout(connect, 3000);
+}
+connect();
+</script></body></html>

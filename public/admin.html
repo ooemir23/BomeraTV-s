@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#f4f5f7}
+section{background:#fff;padding:1rem 1.2rem;margin-bottom:1rem;border-radius:8px}
+h2{margin-top:0}li{margin:.3rem 0}input,button{padding:.4rem .6rem;margin:.1rem}
+</style></head><body>
+<h1>Kafe TV Admin</h1>
+<section><h2>Videolar</h2>
+  <input type="file" id="files" accept="video/*" multiple><button onclick="upload()">Yükle</button>
+  <ul id="videos"></ul></section>
+<section><h2>Maç Takvimi</h2>
+  <input id="mh" placeholder="Ev sahibi"><input id="ma" placeholder="Deplasman">
+  <input id="mt" placeholder="Saat (örn. 21:45)" size="14"><input id="ml" placeholder="Lig">
+  <button onclick="addMatch()">Ekle</button><ul id="matches"></ul></section>
+<section><h2>Doğum Günü</h2>
+  <input id="bn" placeholder="İsim"><button onclick="addB()">Ekle</button>
+  <ul id="bdays"></ul>
+  <p>Gösterim saatleri (virgülle): <input id="times" placeholder="13:00,19:00">
+  Süre (sn): <input id="dur" type="number" style="width:5em"></p>
+  <button onclick="saveSchedule()">Kaydet</button>
+  <button onclick="api('POST','/birthday/fire')">Şimdi göster (test)</button></section>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(method, path, body) {
+  await fetch('/api/admin' + path, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+  load();
+}
+async function upload() {
+  const fd = new FormData();
+  for (const f of $('files').files) fd.append('files', f);
+  await fetch('/api/admin/videos', { method: 'POST', body: fd });
+  $('files').value = ''; load();
+}
+const addMatch = () => api('POST', '/matches', { home: $('mh').value, away: $('ma').value, time: $('mt').value, league: $('ml').value });
+const addB = () => api('POST', '/birthdays', { name: $('bn').value });
+const saveSchedule = () => api('PUT', '/schedule', { times: $('times').value.split(',').map(s => s.trim()), duration: $('dur').value });
+async function load() {
+  const db = await (await fetch('/api/admin/db')).json();
+  $('videos').innerHTML = db.videos.map(v => `<li>${esc(v.name)}
+    <button onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">↑</button>
+    <button onclick="api('POST','/videos/${v.id}/move',{dir:'down'})">↓</button>
+    <button onclick="api('DELETE','/videos/${v.id}')">Sil</button></li>`).join('');
+  $('matches').innerHTML = db.matches.map(m => `<li>${esc(m.time)} ${esc(m.home)} - ${esc(m.away)} (${esc(m.league)})
+    <button onclick="api('DELETE','/matches/${m.id}')">Sil</button></li>`).join('');
+  $('bdays').innerHTML = db.birthdays.map(b => `<li><label><input type="checkbox" ${b.selected ? 'checked' : ''}
+    onchange="api('PATCH','/birthdays/${b.id}',{selected:this.checked})"> ${esc(b.name)}</label>
+    <button onclick="api('DELETE','/birthdays/${b.id}')">Sil</button></li>`).join('');
+  $('times').value = db.times.join(','); $('dur').value = db.duration;
+}
+load();
+</script></body></html>
