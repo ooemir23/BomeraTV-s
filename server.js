@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10 };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [] };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
@@ -152,6 +152,7 @@ app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'public/admin.ht
 const publicState = () => ({
   videos: db.videos.map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file, type: v.type || 'video' })),
   imageSeconds: db.imageSeconds,
+  reviews: (db.reviews || []).filter(r => r.rating >= 4).map(({ id, author, rating, text }) => ({ id, author, rating, text })),
   matches: [
     ...db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)).map(m => ({ ...m, day: 'Bugün' })),
     ...autoMatches,
@@ -192,6 +193,17 @@ app.post('/api/admin/videos/:id/move', (req, res) => {
 });
 app.put('/api/admin/settings', (req, res) => {
   db.imageSeconds = Math.max(3, Number(req.body.imageSeconds) || 10);
+  changed(); res.json({ ok: true });
+});
+app.post('/api/admin/reviews', (req, res) => {
+  const { author, rating, text } = req.body;
+  const n = Number(rating);
+  if (!author || !text || ![4, 5].includes(n)) return res.status(400).json({ error: 'isim, metin ve 4 veya 5 yıldız gerekli' });
+  db.reviews.push({ id: uid(), author: String(author).slice(0, 60), rating: n, text: String(text).slice(0, 400) });
+  changed(); res.json({ ok: true });
+});
+app.delete('/api/admin/reviews/:id', (req, res) => {
+  db.reviews = db.reviews.filter(x => x.id !== req.params.id);
   changed(); res.json({ ok: true });
 });
 app.post('/api/admin/matches', (req, res) => {

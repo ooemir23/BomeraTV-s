@@ -15,6 +15,12 @@ h2{margin-top:0}li{margin:.3rem 0}input,button{padding:.4rem .6rem;margin:.1rem}
   <input id="mh" placeholder="Ev sahibi"><input id="ma" placeholder="Deplasman">
   <input id="mt" placeholder="Saat (örn. 21:45)" size="14"><input id="ml" placeholder="Lig">
   <button onclick="addMatch()">Ekle</button><ul id="matches"></ul></section>
+<section><h2>Google Yorumları</h2>
+  <p>Yalnızca 4 ve 5 yıldızlı yorumlar ekranda alt bantta gösterilir. Yorumu Google'dan kopyalayıp yapıştırın.</p>
+  <input id="ra" placeholder="Yorumcu adı">
+  <select id="rr"><option value="5">5 yıldız</option><option value="4">4 yıldız</option></select><br>
+  <textarea id="rt" rows="3" style="width:100%" placeholder="Yorum metni"></textarea><br>
+  <button onclick="addReview()">Ekle</button><ul id="reviews"></ul></section>
 <section><h2>Doğum Günü</h2>
   <input id="bn" placeholder="İsim"><button onclick="addB()">Ekle</button>
   <ul id="bdays"></ul>
@@ -36,6 +42,7 @@ async function upload() {
   $('files').value = ''; load();
 }
 const addMatch = () => api('POST', '/matches', { home: $('mh').value, away: $('ma').value, time: $('mt').value, league: $('ml').value });
+const addReview = () => api('POST', '/reviews', { author: $('ra').value, rating: $('rr').value, text: $('rt').value }).then(() => { $('ra').value = ''; $('rt').value = ''; });
 const addB = () => api('POST', '/birthdays', { name: $('bn').value });
 const saveSchedule = () => api('PUT', '/schedule', { times: $('times').value.split(',').map(s => s.trim()), duration: $('dur').value });
 async function load() {
@@ -46,6 +53,8 @@ async function load() {
     <button onclick="api('DELETE','/videos/${v.id}')">Sil</button></li>`).join('');
   $('matches').innerHTML = db.matches.map(m => `<li>${esc(m.time)} ${esc(m.home)} - ${esc(m.away)} (${esc(m.league)})
     <button onclick="api('DELETE','/matches/${m.id}')">Sil</button></li>`).join('');
+  $('reviews').innerHTML = (db.reviews || []).map(r => `<li>${'★'.repeat(r.rating)} <b>${esc(r.author)}</b>: ${esc(r.text)}
+    <button onclick="api('DELETE','/reviews/${r.id}')">Sil</button></li>`).join('');
   $('bdays').innerHTML = db.birthdays.map(b => `<li><label><input type="checkbox" ${b.selected ? 'checked' : ''}
     onchange="api('PATCH','/birthdays/${b.id}',{selected:this.checked})"> ${esc(b.name)}</label>
     <button onclick="api('DELETE','/birthdays/${b.id}')">Sil</button></li>`).join('');
