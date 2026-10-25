@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '' };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
@@ -198,6 +198,7 @@ const publicState = () => ({
     ...autoMatches.filter(m => enabledLeagues().some(([, label]) => label === m.league)),
   ].slice(0, 30).map(m => ({ ...m, channel: (db.channels || {})[`${m.league}|${m.home}|${m.away}`] || (db.leagueChannels || {})[m.league] || null })),
   showStandings: db.showStandings !== false,
+  trafficApi: db.trafficApi || '',
   standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code)])),
   rates,
   weather,
@@ -223,6 +224,11 @@ app.get('/api/admin/leagues', (_, res) => res.json({
 }));
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
+  if (typeof req.body.trafficApi === 'string') {
+    const u = req.body.trafficApi.trim();
+    if (u && !/^https:\/\/[^\s]+$/.test(u)) return res.status(400).json({ error: 'Adres https:// ile başlamalı' });
+    db.trafficApi = u;
+  }
   changed(); res.json({ ok: true });
 });
 app.put('/api/admin/channels/league', (req, res) => {

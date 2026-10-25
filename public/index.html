@@ -27,21 +27,18 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #mbody{flex:1;min-height:0;position:relative}
 #list{position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;gap:1vh;transition:opacity .45s,transform .45s}
 #list.out,#traffic.out{opacity:0;transform:translateY(1.2vh)}
-#traffic{position:absolute;inset:0;overflow:hidden;border-radius:14px;border:1px solid rgba(201,149,92,.4);visibility:hidden;background:#cfe3ee;transition:opacity .45s,transform .45s}
-#traffic iframe{position:absolute;width:1600px;height:1600px;left:50%;top:50%;margin:-800px 0 0 -800px;border:0;pointer-events:none}
-#tidx{position:absolute;left:1vw;right:1vw;top:1.2vh;background:rgba(27,29,29,.94);border:1px solid rgba(201,149,92,.35);border-radius:12px;padding:1vh 1vw;display:none;align-items:center;flex-wrap:wrap;gap:.8vh 1vw}
+#traffic{position:absolute;inset:0;overflow:hidden;border-radius:16px;border:1px solid rgba(201,149,92,.55);visibility:hidden;background:#15181b;box-shadow:0 0 0 .4vh rgba(0,0,0,.35),0 2vh 5vh rgba(0,0,0,.55);transition:opacity .45s,transform .45s}
+#traffic iframe{position:absolute;width:1600px;height:1600px;left:50%;top:50%;margin:-800px 0 0 -800px;border:0;pointer-events:none;filter:invert(.93) hue-rotate(180deg) saturate(1.25) brightness(.92) contrast(1.05)}
+#traffic::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:16px;box-shadow:inset 0 0 6vh rgba(10,12,14,.75)}
+#tchip{position:absolute;left:1vw;top:1.2vh;z-index:2;display:flex;align-items:center;gap:.6vw;background:rgba(20,22,24,.78);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:3vh;padding:.7vh 1.1vw;font-size:1.25vh;letter-spacing:.2em;font-weight:700;text-transform:uppercase;color:var(--soft)}
+#tchip::before{content:"";width:.8vh;height:.8vh;border-radius:50%;background:var(--live);animation:pulse 1.2s infinite}
+#tidx{position:absolute;left:1vw;top:5.4vh;z-index:2;background:rgba(20,22,24,.78);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:3vh;padding:.5vh 1vw;display:none;align-items:center;gap:.8vw;font-size:1.3vh;color:var(--soft)}
 #tidx.on{display:flex}
-#tidx .big{font-size:5.4vh;font-weight:700;line-height:1;color:var(--tc,#3ecf4a);min-width:3.2ch}
-#tidx .big i{font-style:normal;font-size:2.6vh;margin-left:.1vw}
-#tidx .lab{flex:1;min-width:0}
-#tidx .lab b{display:block;white-space:nowrap;font-size:1.5vh;letter-spacing:.12em;text-transform:uppercase;color:var(--tc,#3ecf4a);font-weight:700}
-#tidx .lab small{display:block;white-space:nowrap;font-size:1.2vh;letter-spacing:.08em;color:var(--mute);margin-top:.3vh}
-#tidx .sub{flex:1 0 100%;display:grid;grid-template-columns:1fr 1fr;gap:.8vw}
-#tidx .sub div{display:flex;justify-content:space-between;align-items:center;padding:.5vh .8vw;border-radius:8px;background:rgba(255,255,255,.06)}
-#tidx .sub small{display:block;font-size:1.05vh;letter-spacing:.14em;color:var(--mute);text-transform:uppercase}
-#tidx .sub strong{font-size:2.4vh;font-weight:700;color:var(--c)}
-#tlegend{position:absolute;left:1vw;right:1vw;bottom:1.2vh;background:rgba(27,29,29,.82);border-radius:10px;padding:.8vh .9vw;display:flex;align-items:center;gap:.8vw;font-size:1.25vh;letter-spacing:.12em;text-transform:uppercase;color:var(--soft);font-weight:600}
-#tlegend i{flex:1;height:.9vh;border-radius:1vh;background:linear-gradient(90deg,#3ecf4a,#f2c230,#ee3b2f,#8b1a14)}
+#tidx b{font-size:2.2vh;font-weight:800;color:var(--tc,#3ecf4a)}
+#tidx span{color:var(--mute);letter-spacing:.06em}
+#tidx span i{font-style:normal;color:var(--c);font-weight:700;margin-left:.3vw}
+#tlegend{position:absolute;left:1vw;right:1vw;bottom:1.2vh;z-index:2;background:rgba(20,22,24,.78);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:3vh;padding:.8vh 1.2vw;display:flex;align-items:center;gap:.9vw;font-size:1.15vh;letter-spacing:.18em;text-transform:uppercase;color:var(--soft);font-weight:600}
+#tlegend i{flex:1;height:.8vh;border-radius:1vh;background:linear-gradient(90deg,#3ecf4a,#f2c230,#ee3b2f,#8b1a14)}
 .m{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:2.4vh .8vw 2.3vh;flex:none}
 .m .dayl{position:absolute;top:.9vh;left:.9vw;font-size:1.1vh;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);font-weight:500}
 .m .chn{position:absolute;right:.8vw;bottom:.7vh;font-size:1.15vh;font-weight:600;letter-spacing:.06em;color:var(--accent2);max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -145,7 +142,7 @@ background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100
   <div id="stage"><div id="frame"><div id="bgw"><canvas id="bgc"></canvas></div><video id="v" autoplay muted playsinline></video><img id="img" alt=""></div></div>
   <div id="side">
     <div id="logo"></div>
-    <div id="matches"><div id="goal"></div><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tidx"></div><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
+    <div id="matches"><div id="goal"></div><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tchip">Canlı Trafik · İstanbul</div><div id="tidx"></div><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
     <div id="rates"></div>
   </div>
   <div id="reviews"></div>
@@ -329,7 +326,7 @@ function setState(s) {
   setTicker(s.matches);
   setRates(s.rates);
   if (s.weather) setWeather(s.weather);
-  setTraffic(s.traffic);
+  if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; setTraffic(s.traffic); }
   setReviews(s.reviews);
 }
 const tcol = v => v <= 20 ? '#3ecf4a' : v <= 40 ? '#e6c229' : v <= 60 ? '#f08a24' : '#ee3b2f';
@@ -337,10 +334,22 @@ const tlab = v => v <= 20 ? 'Akıcı' : v <= 40 ? 'Normal' : v <= 60 ? 'Yoğun' 
 function setTraffic(t) {
   const el = document.getElementById('tidx');
   if (!t) { el.classList.remove('on'); return; }
-  const sub = (name, v) => `<div style="--c:${tcol(v)}"><small>${name}</small><strong>%${v}</strong></div>`;
+  const sub = (name, v) => `<span>${name}<i style="--c:${tcol(v)}">%${v}</i></span>`;
   el.style.setProperty('--tc', tcol(t.all));
-  el.innerHTML = `<div class="big">%${t.all}</div><div class="lab"><b>${tlab(t.all)}</b><small>İstanbul geneli</small></div><div class="sub">${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}</div>`;
+  el.innerHTML = `<b>%${t.all}</b>${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}`;
   el.classList.add('on');
+}
+let trafficUrl = '', trafficTimer;
+async function fetchTraffic() {
+  try {
+    const j = await (await fetch(trafficUrl, { cache: 'no-store' })).json();
+    if (typeof j.all === 'number') setTraffic({ all: j.all, asia: j.asia, europe: j.europe });
+  } catch (e) { /* önceki değer kalır */ }
+}
+function pollTraffic(url) {
+  if (url === trafficUrl) return;
+  trafficUrl = url; clearInterval(trafficTimer);
+  fetchTraffic(); trafficTimer = setInterval(fetchTraffic, 2 * 60 * 1000);
 }
 let lastRates = {}, lastWeather = null;
 const WMO = c => c === 0 ? ['Açık', '☀️', '🌙'] : c <= 2 ? ['Parçalı bulutlu', '⛅', '☁️'] : c === 3 ? ['Kapalı', '☁️', '☁️']

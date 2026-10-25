@@ -131,6 +131,10 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <div class="grid g2">
     <div class="card"><h2>Canlı Önizleme</h2><p class="hint">TV'de görünen ekranın küçültülmüş hâli. Değişiklikler burada da anında görünür.</p>
       <div id="pv"><iframe src="/" id="pvf"></iframe></div></div>
+    <div class="card" style="grid-column:1/-1"><h2>Trafik Yüzdesi (isteğe bağlı)</h2>
+      <p class="hint">Haritanın üstünde İstanbul geneli, Avrupa ve Anadolu yakası trafik yoğunluğu yüzdesini gösterir. İBB verisine sunucu üzerinden erişilemediği için küçük bir Cloudflare Worker gerekir (kurulum adımları sohbette anlatıldı, kod: <code>tools/cloudflare-traffic-worker.js</code>). Worker adresini buraya yapıştırın; boş bırakırsanız yüzde gösterilmez.</p>
+      <div class="row"><div class="fld"><label class="f">Worker adresi</label><input type="text" id="tapi" placeholder="https://trafik.kullanici.workers.dev"></div>
+      <button class="btn" onclick="api('PUT','/options',{trafficApi:$('tapi').value},'Trafik adresi kaydedildi')">Kaydet</button></div></div>
     <div class="card"><h2>Hızlı İşlemler</h2><p class="hint">Tüm TV'lerde anında test gösterimi başlatır.</p>
       <div class="row">
         <button class="btn" onclick="post('/goal/test','Gol animasyonu tüm TV\'lere gönderildi')">⚽ Gol animasyonunu test et</button>
@@ -399,7 +403,7 @@ function counts() {
 async function load() {
   const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
-  $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
+  $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
   renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
