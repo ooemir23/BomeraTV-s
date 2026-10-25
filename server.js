@@ -20,6 +20,19 @@ let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], du
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
+let traffic = null;
+async function refreshTraffic() {
+  try {
+    const r = await fetch('https://api.ibb.gov.tr/tkmservices/api/TrafficData/v1/TrafficIndex_Sc1_Cont');
+    const j = await r.json();
+    if (typeof j.TI !== 'number') throw new Error('beklenmeyen yanıt');
+    traffic = { all: j.TI, asia: j.TI_An, europe: j.TI_Av, updated: new Date().toISOString() };
+    broadcast({ type: 'traffic', traffic });
+  } catch (e) { console.error('Trafik endeksi alınamadı:', e.message); }
+}
+refreshTraffic();
+setInterval(refreshTraffic, 2 * 60 * 1000);
+
 let weather = null;
 async function refreshWeather() {
   try {
@@ -49,7 +62,7 @@ async function refreshRates() {
     const g = await (await fetch('https://finans.truncgil.com/v4/today.json')).json();
     rates = { ...rates, gold: Number(g.GRA.Selling) };
     broadcast({ type: 'rates', rates });
-  } catch (e) { console.error('Altın alınamadı:', e.message); }
+  } catch (e) { console.error('Altın alınamadı:', e.message); if (!rates.gold) setTimeout(refreshRates, 30 * 1000); }
 }
 refreshRates();
 setInterval(refreshRates, 10 * 60 * 1000);
@@ -145,6 +158,7 @@ const publicState = () => ({
   ].slice(0, 30),
   rates,
   weather,
+  traffic,
 });
 app.get('/api/state', (_, res) => res.json(publicState()));
 app.use('/uploads', express.static(UPLOAD_DIR));
