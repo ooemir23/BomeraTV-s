@@ -182,7 +182,11 @@ function broadcast(msg) {
   const s = JSON.stringify(msg);
   wss.clients.forEach(c => c.readyState === 1 && c.send(s));
 }
-wss.on('connection', ws => ws.send(JSON.stringify({ type: 'state', state: publicState() })));
+const BUILD = require('crypto').createHash('md5').update(fs.readFileSync(path.join(__dirname, 'public/index.html'))).digest('hex');
+wss.on('connection', ws => {
+  ws.send(JSON.stringify({ type: 'version', build: BUILD }));
+  ws.send(JSON.stringify({ type: 'state', state: publicState() }));
+});
 
 function fireBirthday() {
   const names = db.birthdays.filter(b => b.selected).map(b => b.name);

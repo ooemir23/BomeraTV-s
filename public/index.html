@@ -5,11 +5,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 :root{--bg:#1b1d1d;--card:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--white:#FBFBFB;--soft:#E5E5E5;--mute:#9aa0a0;--accent:#906538;--accent2:#c9955c;--live:#ff4d4d}
 *{box-sizing:border-box;margin:0}
-html,body{height:100%;background:var(--bg);color:var(--white);font-family:Montserrat,system-ui,sans-serif;overflow:hidden;cursor:none}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--white);font-family:Montserrat,system-ui,sans-serif;overflow:hidden;cursor:none}
 #app{display:grid;grid-template-columns:1fr 28vw;grid-template-rows:minmax(0,1fr) 6.5vh;height:100vh;height:100dvh;background:radial-gradient(110% 90% at 15% 0%,#2c3030 0%,#1b1d1d 65%)}
-#stage{padding:2.4vh 1vw 2.4vh 2vw;display:flex}
+#stage{padding:2.4vh 1vw 2.4vh 2vw;display:flex;min-height:0;min-width:0;overflow:hidden}
 #frame{flex:1;position:relative;border-radius:18px;padding:.6vh;background:linear-gradient(145deg,rgba(201,149,92,.7),rgba(144,101,56,.15) 40%,rgba(201,149,92,.5));box-shadow:0 3vh 8vh rgba(0,0,0,.65)}
-video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radius:15px;display:block}
+video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100% - 1.2vh);object-fit:contain;background:#000;border-radius:15px;display:block}
 #img{display:none}
 #side{padding:2.4vh 2vw 2.4vh 1vw;display:flex;flex-direction:column;gap:2.2vh;min-height:0}
 #logo{width:100%;aspect-ratio:1285/327;background:url(/logo.png) center/100% 100% no-repeat;border-radius:12px;flex:none;box-shadow:0 1vh 3vh rgba(0,0,0,.4)}
@@ -218,7 +218,8 @@ function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
-    if (m.type === 'state') setState(m.state);
+    if (m.type === 'version') { if (window.__build && window.__build !== m.build) location.reload(); window.__build = m.build; }
+    else if (m.type === 'state') setState(m.state);
     else if (m.type === 'rates') setRates(m.rates);
     else if (m.type === 'birthday') birthday(m.names, m.duration);
   };
