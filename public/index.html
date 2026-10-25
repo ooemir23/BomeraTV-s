@@ -6,10 +6,10 @@
 :root{--bg:#1b1d1d;--card:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--white:#FBFBFB;--soft:#E5E5E5;--mute:#9aa0a0;--accent:#906538;--accent2:#c9955c;--live:#ff4d4d}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;background:var(--bg);color:var(--white);font-family:Montserrat,system-ui,sans-serif;overflow:hidden;cursor:none}
-#app{display:grid;grid-template-columns:1fr 28vw;height:100vh;background:radial-gradient(110% 90% at 15% 0%,#2c3030 0%,#1b1d1d 65%)}
+#app{display:grid;grid-template-columns:1fr 28vw;height:100vh;height:100dvh;background:radial-gradient(110% 90% at 15% 0%,#2c3030 0%,#1b1d1d 65%)}
 #stage{padding:2.4vh 1vw 2.4vh 2vw;display:flex}
 #frame{flex:1;position:relative;border-radius:18px;padding:.6vh;background:linear-gradient(145deg,rgba(201,149,92,.7),rgba(144,101,56,.15) 40%,rgba(201,149,92,.5));box-shadow:0 3vh 8vh rgba(0,0,0,.65)}
-video,#img{width:100%;height:100%;object-fit:cover;background:#000;border-radius:15px;display:block}
+video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radius:15px;display:block}
 #img{display:none}
 #side{padding:2.4vh 2vw 2.4vh 1vw;display:flex;flex-direction:column;gap:2.2vh;min-height:0}
 #logo{width:100%;aspect-ratio:1285/327;background:url(/logo.png) center/100% 100% no-repeat;border-radius:12px;flex:none;box-shadow:0 1vh 3vh rgba(0,0,0,.4)}
@@ -32,11 +32,15 @@ video,#img{width:100%;height:100%;object-fit:cover;background:#000;border-radius
 .row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row b{font-weight:700;font-size:2vh;min-width:2ch;text-align:right}
 .row.lose{color:var(--mute)}
-#rates{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:.6vw;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.2vh .5vw}
-#rates div{text-align:center;padding:.2vh 0;border-right:1px solid var(--line)}
-#rates div:last-child{border:0}
-#rates small{display:block;font-size:1.25vh;letter-spacing:.2em;color:var(--accent2);font-weight:600;margin-bottom:.3vh}
-#rates strong{font-size:2.2vh;font-weight:600}
+#rates{flex:none;background:linear-gradient(160deg,rgba(201,149,92,.16),rgba(255,255,255,.03));border:1px solid rgba(201,149,92,.35);border-radius:16px;padding:1.4vh 1vw 1.2vh}
+#rhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1vh;font-size:1.2vh;letter-spacing:.3em;text-transform:uppercase;color:var(--soft);font-weight:600}
+#rhead small{letter-spacing:.08em;color:var(--mute);font-weight:400;text-transform:none;font-size:1.2vh}
+#rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7vw}
+.rt{background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:12px;padding:1.2vh .3vw 1.1vh;text-align:center}
+.ic{width:4.2vh;height:4.2vh;margin:0 auto .7vh;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.2vh;font-weight:600;color:#1b1d1d;background:linear-gradient(145deg,#e6b87d,#906538)}
+.rt small{display:block;font-size:1.2vh;letter-spacing:.25em;color:var(--accent2);font-weight:600;margin-bottom:.4vh}
+.rt strong{font-size:2.6vh;font-weight:600;white-space:nowrap}
+.rt strong i{font-style:normal;font-size:1.6vh;color:var(--mute);margin-left:.2vw;font-weight:400}
 #bday{position:fixed;left:0;right:0;bottom:0;height:11vh;background:linear-gradient(90deg,#4a2f18,var(--accent) 50%,#4a2f18);border-top:1px solid var(--soft);display:none;align-items:center;overflow:hidden;z-index:5}
 #bday.on{display:flex}
 #bday p{white-space:nowrap;font-size:5.4vh;font-weight:600;color:var(--white);padding-left:100%;animation:slide var(--d,20s) linear infinite}
@@ -74,7 +78,7 @@ v.addEventListener('ended', next);
 v.addEventListener('error', () => { clearTimeout(timer); timer = setTimeout(next, 2000); });
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const PER_PAGE = 6, PAGE_MS = 9000;
+let PER_PAGE = 5; const PAGE_MS = 9000;
 let matches = [], page = 0, rot;
 function card(m) {
   const hasScore = m.hs != null;
@@ -87,8 +91,17 @@ function card(m) {
     <div class="row ${m.final && aw ? 'lose' : ''}"><span>${esc(m.home)}</span>${sc(m.hs)}</div>
     <div class="row ${m.final && hw ? 'lose' : ''}"><span>${esc(m.away)}</span>${sc(m.as)}</div></div>`;
 }
+function fit() {
+  const list = document.getElementById('list');
+  list.innerHTML = card({league: 'x', home: 'x', away: 'x', hs: 0, as: 0, final: true});
+  const ch = list.firstElementChild.getBoundingClientRect().height + 2;
+  const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
+  PER_PAGE = Math.max(1, Math.floor((list.clientHeight + gap) / (ch + gap)));
+}
+addEventListener('resize', () => { fit(); render(); });
 function render() {
   const list = document.getElementById('list'), dots = document.getElementById('dots');
+  if (!window.fitted) { fit(); window.fitted = true; }
   const pages = Math.max(1, Math.ceil(matches.length / PER_PAGE));
   page %= pages;
   list.innerHTML = matches.length
@@ -118,9 +131,12 @@ function setState(s) {
   setRates(s.rates);
 }
 function setRates(r) {
-  const f = x => x ? x.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--';
+  const f = (x, d = 2) => x ? x.toLocaleString('tr-TR', {minimumFractionDigits: d, maximumFractionDigits: d}) : '--';
+  const t = r.updated ? new Date(r.updated).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul'}) : '';
+  const tile = (ic, code, val) => `<div class="rt"><div class="ic">${ic}</div><small>${code}</small><strong>${val}<i>₺</i></strong></div>`;
   document.getElementById('rates').innerHTML =
-    `<div><small>USD</small><strong>${f(r.usd)}</strong></div><div><small>EUR</small><strong>${f(r.eur)}</strong></div><div><small>ALTIN</small><strong>${f(r.gold)}</strong></div>`;
+    `<div id="rhead"><span>Piyasalar</span><small>${t ? 'Güncelleme ' + t : ''}</small></div><div id="rgrid">` +
+    tile('$', 'DOLAR', f(r.usd)) + tile('€', 'EURO', f(r.eur)) + tile('Au', 'GR ALTIN', f(r.gold, 0)) + '</div>';
 }
 let bt;
 function birthday(names, dur) {

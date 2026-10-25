@@ -43,6 +43,11 @@ const LEAGUES = [
   ['uefa.europa', 'Avrupa Ligi'],
   ['tur.1', 'Süper Lig'],
   ['tur.2', 'TFF 1. Lig'],
+  ['esp.1', 'La Liga'],
+  ['eng.1', 'Premier Lig'],
+  ['ita.1', 'Serie A'],
+  ['ger.1', 'Bundesliga'],
+  ['fra.1', 'Ligue 1'],
 ];
 const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d); // YYYY-MM-DD
 const hm = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
@@ -50,7 +55,7 @@ let autoMatches = [];
 async function refreshMatches() {
   const out = [];
   const today = ymd(new Date());
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const day = new Date(Date.now() + i * 86400000);
     const q = ymd(day).replace(/-/g, '');
     for (const [code, label] of LEAGUES) {
