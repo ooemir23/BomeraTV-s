@@ -9,7 +9,10 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--white);font-fa
 #app{display:grid;grid-template-columns:1fr 28vw;grid-template-rows:minmax(0,1fr) 6.5vh;height:100vh;height:100dvh;background:radial-gradient(110% 90% at 15% 0%,#2c3030 0%,#1b1d1d 65%)}
 #stage{padding:2.4vh 1vw 2.4vh 2vw;display:flex;min-height:0;min-width:0;overflow:hidden}
 #frame{flex:1;position:relative;border-radius:18px;padding:.6vh;background:linear-gradient(145deg,rgba(201,149,92,.7),rgba(144,101,56,.15) 40%,rgba(201,149,92,.5));box-shadow:0 3vh 8vh rgba(0,0,0,.65)}
-video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100% - 1.2vh);object-fit:contain;background:#000;border-radius:15px;display:block}
+#bgw{position:absolute;inset:.6vh;border-radius:15px;overflow:hidden;background:#1b1d1d}
+#bgc{width:100%;height:100%;display:block;filter:blur(2.4vh) saturate(1.1) brightness(.62);transform:scale(1.35)}
+#bgw::after{content:"";position:absolute;inset:0;background:linear-gradient(145deg,rgba(144,101,56,.30),rgba(27,29,29,.38))}
+video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100% - 1.2vh);object-fit:contain;background:transparent;border-radius:15px;display:block}
 #img{display:none}
 #side{padding:2.4vh 2vw 2.4vh 1vw;display:flex;flex-direction:column;gap:2.2vh;min-height:0}
 #logo{width:100%;aspect-ratio:1285/327;background:url(/logo.png) center/100% 100% no-repeat;border-radius:12px;flex:none;box-shadow:0 1vh 3vh rgba(0,0,0,.4)}
@@ -65,7 +68,7 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 @keyframes slide{to{transform:translateX(-100%)}}
 </style></head><body>
 <div id="app">
-  <div id="stage"><div id="frame"><video id="v" autoplay muted playsinline></video><img id="img" alt=""></div></div>
+  <div id="stage"><div id="frame"><div id="bgw"><canvas id="bgc"></canvas></div><video id="v" autoplay muted playsinline></video><img id="img" alt=""></div></div>
   <div id="side">
     <div id="logo"></div>
     <div id="matches"><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
@@ -93,6 +96,17 @@ function play() {
     v.play().catch(() => {});
   }
 }
+const bgc = document.getElementById('bgc'), bctx = bgc.getContext('2d');
+function sizeBg() { const f = document.getElementById('frame'); bgc.width = 64; bgc.height = Math.max(8, Math.round(64 * f.clientHeight / Math.max(1, f.clientWidth))); }
+function drawBg(src, iw, ih) {
+  if (!iw || !ih) return;
+  const s = Math.max(bgc.width / iw, bgc.height / ih), w = iw * s, hh = ih * s;
+  bctx.drawImage(src, (bgc.width - w) / 2, (bgc.height - hh) / 2, w, hh);
+}
+sizeBg();
+addEventListener('resize', () => { sizeBg(); if (img.style.display === 'block') drawBg(img, img.naturalWidth, img.naturalHeight); });
+img.addEventListener('load', () => drawBg(img, img.naturalWidth, img.naturalHeight));
+setInterval(() => { if (v.style.display !== 'none' && !v.paused && v.readyState >= 2) drawBg(v, v.videoWidth, v.videoHeight); }, 250);
 v.addEventListener('ended', next);
 v.addEventListener('error', () => { clearTimeout(timer); timer = setTimeout(next, 2000); });
 
