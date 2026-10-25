@@ -19,18 +19,18 @@ video,#img{width:100%;height:100%;object-fit:cover;background:#000;border-radius
 #dots{display:flex;gap:.45vw}
 #dots i{width:.55vw;height:.55vw;border-radius:50%;background:rgba(255,255,255,.2);transition:.4s}
 #dots i.on{background:var(--accent2);width:1.5vw;border-radius:1vw}
-#list{flex:1;min-height:0;display:flex;flex-direction:column;gap:1.3vh;transition:opacity .45s,transform .45s}
+#list{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1vh;transition:opacity .45s,transform .45s}
 #list.out{opacity:0;transform:translateY(1.2vh)}
-.m{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.3vh 1.1vw;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:.7vh;max-height:15vh}
-.m .top{display:flex;justify-content:space-between;align-items:center;font-size:1.35vh;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:500}
-.pill{font-weight:600;letter-spacing:.08em;padding:.35vh .7vw;border-radius:2vh;background:rgba(255,255,255,.08);color:var(--soft);font-size:1.35vh;white-space:nowrap}
+.m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.9vh .9vw;flex:none;display:flex;flex-direction:column;gap:.4vh}
+.m .top{display:flex;justify-content:space-between;align-items:center;font-size:1.15vh;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:500}
+.pill{font-weight:600;letter-spacing:.08em;padding:.2vh .55vw;border-radius:2vh;background:rgba(255,255,255,.08);color:var(--soft);font-size:1.15vh;white-space:nowrap}
 .pill.live{background:rgba(255,77,77,.16);color:var(--live)}
 .pill.live::before{content:"";display:inline-block;width:.5vh;height:.5vh;margin-right:.5vw;border-radius:50%;background:var(--live);animation:pulse 1.2s infinite}
 .pill.fin{background:rgba(144,101,56,.25);color:var(--accent2)}
 @keyframes pulse{50%{opacity:.25}}
-.row{display:flex;justify-content:space-between;align-items:center;font-size:2.35vh;font-weight:500;line-height:1.2;gap:1vw}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:1.9vh;font-weight:500;line-height:1.25;gap:1vw}
 .row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row b{font-weight:700;font-size:2.6vh;min-width:2ch;text-align:right}
+.row b{font-weight:700;font-size:2vh;min-width:2ch;text-align:right}
 .row.lose{color:var(--mute)}
 #rates{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:.6vw;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.2vh .5vw}
 #rates div{text-align:center;padding:.2vh 0;border-right:1px solid var(--line)}
@@ -74,7 +74,7 @@ v.addEventListener('ended', next);
 v.addEventListener('error', () => { clearTimeout(timer); timer = setTimeout(next, 2000); });
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const PER_PAGE = 4, PAGE_MS = 9000;
+const PER_PAGE = 6, PAGE_MS = 9000;
 let matches = [], page = 0, rot;
 function card(m) {
   const hasScore = m.hs != null;
