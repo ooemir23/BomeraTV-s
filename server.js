@@ -68,6 +68,7 @@ const LEAGUES = [
 const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d); // YYYY-MM-DD
 const hm = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 let autoMatches = [];
+const prevScores = new Map();
 async function refreshMatches() {
   const out = [];
   const today = ymd(new Date());
@@ -91,6 +92,11 @@ async function refreshMatches() {
             live: st === 'in', final: st === 'post',
             hs: st === 'pre' ? null : home.score, as: st === 'pre' ? null : away.score,
             clock: st === 'in' ? e.status.displayClock : null,
+            lastGoal: (() => {
+              const g = (e.competitions[0].details || []).filter(d => d.scoringPlay).pop();
+              if (!g) return null;
+              return { min: g.clock && g.clock.displayValue, player: ((g.athletesInvolved || [])[0] || {}).displayName || '', own: !!g.ownGoal, pen: !!g.penaltyKick };
+            })(),
           });
         }
       } catch (err) { console.error('Maç alınamadı', code, err.message); }
@@ -99,11 +105,23 @@ async function refreshMatches() {
   const seen = new Set();
   const rank = m => (m.live ? 0 : m.final ? 2 : 1);
   autoMatches = out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => rank(a) - rank(b) || a.ts - b.ts);
+  for (const m of autoMatches) {
+    if (!m.live) continue;
+    const cur = { h: +m.hs || 0, a: +m.as || 0 }, prev = prevScores.get(m.id);
+    if (prev && (cur.h > prev.h || cur.a > prev.a)) {
+      const g = m.lastGoal || {};
+      broadcast({ type: 'goal', goal: {
+        id: m.id, league: m.league, home: m.home, away: m.away, hs: m.hs, as: m.as,
+        side: cur.h > prev.h ? 'home' : 'away', minute: g.min || m.clock, player: g.player || '', own: !!g.own, pen: !!g.pen,
+      } });
+    }
+    prevScores.set(m.id, cur);
+  }
   broadcast({ type: 'state', state: publicState() });
 }
 (async function loop() {
   await refreshMatches();
-  setTimeout(loop, autoMatches.some(m => m.live) ? 45 * 1000 : 5 * 60 * 1000);
+  setTimeout(loop, autoMatches.some(m => m.live) ? 25 * 1000 : 5 * 60 * 1000);
 })();
 
 const app = express();
@@ -190,6 +208,10 @@ app.put('/api/admin/schedule', (req, res) => {
   db.times = (req.body.times || []).filter(t => /^\d{2}:\d{2}$/.test(t));
   db.duration = Math.max(5, Number(req.body.duration) || 40);
   save(); res.json({ ok: true });
+});
+app.post('/api/admin/goal/test', (_, res) => {
+  broadcast({ type: 'goal', goal: { id: 'test', league: 'La Liga', home: 'Barcelona', away: 'Real Madrid', hs: 1, as: 2, side: 'away', minute: "67'", player: 'Kylian Mbappé', own: false, pen: false } });
+  res.json({ ok: true });
 });
 app.post('/api/admin/birthday/fire', (_, res) => { fireBirthday(); res.json({ ok: true }); });
 

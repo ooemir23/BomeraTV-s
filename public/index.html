@@ -16,7 +16,7 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #img{display:none}
 #side{padding:2.4vh 2vw 2.4vh 1vw;display:flex;flex-direction:column;gap:2.2vh;min-height:0}
 #logo{width:100%;aspect-ratio:1285/327;background:url(/logo.png) center/100% 100% no-repeat;border-radius:12px;flex:none;box-shadow:0 1vh 3vh rgba(0,0,0,.4)}
-#matches{flex:1;min-height:0;display:flex;flex-direction:column}
+#matches{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 #mhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.6vh;padding:0 .3vw}
 #mhead h2{font-size:1.7vh;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--soft)}
 #dots{display:flex;gap:.45vw}
@@ -55,6 +55,27 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #rrow small{display:block;font-size:1.1vh;letter-spacing:.22em;color:var(--accent2);font-weight:600}
 #rrow strong{font-size:2.1vh;font-weight:600;white-space:nowrap}
 #rrow strong i{font-style:normal;font-size:1.3vh;color:var(--mute);margin-left:.15vw;font-weight:400}
+#goal{position:absolute;inset:0;z-index:6;border-radius:16px;overflow:hidden;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2vh 1.2vw;
+background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100%);border:1px solid rgba(255,230,190,.6);box-shadow:0 0 6vh rgba(201,149,92,.55)}
+#goal.in{display:flex;animation:gin .7s cubic-bezier(.2,1.3,.4,1) both}
+#goal.out{display:flex;animation:gout .5s ease-in both}
+@keyframes gin{from{transform:translateX(110%) scale(.85);opacity:0}to{transform:none;opacity:1}}
+@keyframes gout{to{transform:translateX(110%);opacity:0}}
+#goal .ball{font-size:7vh;animation:spin 2.4s linear infinite;line-height:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+#goal h3{font-size:8.5vh;font-weight:800;letter-spacing:.12em;color:#fff;text-shadow:0 .6vh 2vh rgba(0,0,0,.5);animation:pop 1s ease-in-out infinite;margin:.6vh 0 .2vh}
+@keyframes pop{50%{transform:scale(1.08)}}
+#goal .lg{font-size:1.5vh;letter-spacing:.3em;text-transform:uppercase;color:#ffe9c7;font-weight:600}
+#goal .teams{width:100%;margin-top:2vh;background:rgba(0,0,0,.35);border-radius:14px;padding:1.4vh 1.2vw;display:flex;flex-direction:column;gap:.8vh}
+#goal .tr{display:flex;justify-content:space-between;align-items:center;font-size:3vh;font-weight:500;color:#e8dcc8;gap:1vw}
+#goal .tr span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#goal .tr b{font-size:4vh;font-weight:800;min-width:2ch;text-align:right}
+#goal .tr.sc{color:#fff;font-weight:700}
+#goal .tr.sc b{color:#ffd58a;animation:pop .8s ease-in-out infinite}
+#goal .who{margin-top:2.4vh;font-size:3.4vh;font-weight:700;color:#fff;line-height:1.2}
+#goal .who small{display:block;margin-top:.6vh;font-size:2.2vh;font-weight:500;color:#ffe9c7;letter-spacing:.08em}
+.cf{position:absolute;top:-4vh;width:1vh;height:1.6vh;opacity:.9;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 #ticker{grid-column:1/3;display:flex;align-items:stretch;background:linear-gradient(180deg,#171919,#0e0f0f);border-top:1px solid rgba(201,149,92,.55);overflow:hidden;position:relative}
 #tlabel{flex:none;display:flex;align-items:center;gap:.7vw;padding:0 2vw;background:linear-gradient(90deg,#906538,#b07a45);color:#fff;font-size:2vh;font-weight:700;letter-spacing:.22em;text-transform:uppercase;position:relative;z-index:2;box-shadow:1vw 0 2vw rgba(0,0,0,.5)}
 #tlabel::before{content:"";width:1vh;height:1vh;border-radius:50%;background:#fff;animation:pulse 1.2s infinite}
@@ -77,7 +98,7 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
   <div id="stage"><div id="frame"><div id="bgw"><canvas id="bgc"></canvas></div><video id="v" autoplay muted playsinline></video><img id="img" alt=""></div></div>
   <div id="side">
     <div id="logo"></div>
-    <div id="matches"><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
+    <div id="matches"><div id="goal"></div><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
     <div id="rates"></div>
   </div>
   <div id="ticker"><div id="tlabel"><span id="tl">Canlı Skorlar</span></div><div id="tview"><div id="ttrack"><div id="ta"></div><div id="tb"></div></div></div></div>
@@ -171,7 +192,7 @@ function render() {
   dots.innerHTML = pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
 }
 function tick() {
-  if (PIN) return;
+  if (PIN && PIN !== 'goal') return;
   const el = document.getElementById(pages[page]?.type === 'traffic' ? 'traffic' : 'list');
   el.classList.add('out');
   setTimeout(() => { page++; render(); el.classList.remove('out'); schedule(); }, 450);
@@ -239,6 +260,33 @@ function renderPanel() {
 }
 function setRates(r) { lastRates = r; renderPanel(); }
 function setWeather(w) { lastWeather = w; renderPanel(); }
+const goalQueue = []; let goalBusy = false;
+function showGoal(g) {
+  goalQueue.push(g);
+  if (!goalBusy) nextGoal();
+}
+function nextGoal() {
+  const g = goalQueue.shift();
+  if (!g) { goalBusy = false; return; }
+  goalBusy = true;
+  const el = document.getElementById('goal');
+  const tag = g.own ? 'Kendi kalesine' : g.pen ? 'Penaltı' : '';
+  const sc = g.side;
+  el.innerHTML = `<div class="ball">⚽</div><h3>GOL!</h3><div class="lg">${esc(g.league)}</div>
+    <div class="teams"><div class="tr ${sc === 'home' ? 'sc' : ''}"><span>${esc(g.home)}</span><b>${esc(g.hs)}</b></div>
+    <div class="tr ${sc === 'away' ? 'sc' : ''}"><span>${esc(g.away)}</span><b>${esc(g.as)}</b></div></div>
+    <div class="who">${esc(g.player || 'Gol!')}<small>${esc(g.minute || '')}${tag ? ' · ' + tag : ''}</small></div>`;
+  const cols = ['#ffd58a', '#ffffff', '#c9955c', '#ff6b6b', '#7ee0a0'];
+  for (let i = 0; i < 28; i++) {
+    const c = document.createElement('i'); c.className = 'cf';
+    c.style.left = Math.random() * 100 + '%'; c.style.background = cols[i % cols.length];
+    c.style.animationDuration = 2.5 + Math.random() * 2.5 + 's'; c.style.animationDelay = Math.random() * 1.5 + 's';
+    el.appendChild(c);
+  }
+  el.className = 'in';
+  setTimeout(() => { el.className = 'out'; setTimeout(() => { el.className = ''; nextGoal(); }, 520); }, 12000);
+}
+if (PIN === 'goal') setTimeout(() => showGoal({ league: 'La Liga', home: 'Barcelona', away: 'Real Madrid', hs: 1, as: 2, side: 'away', minute: "67'", player: 'Kylian Mbappé' }), 1500);
 let bt;
 function birthday(names, dur) {
   const b = document.getElementById('bday'), p = document.getElementById('btxt');
@@ -255,6 +303,7 @@ function connect() {
     else if (m.type === 'state') setState(m.state);
     else if (m.type === 'rates') setRates(m.rates);
     else if (m.type === 'weather') setWeather(m.weather);
+    else if (m.type === 'goal') showGoal(m.goal);
     else if (m.type === 'birthday') birthday(m.names, m.duration);
   };
   ws.onclose = () => setTimeout(connect, 3000);
