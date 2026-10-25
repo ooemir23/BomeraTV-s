@@ -11,7 +11,7 @@ h2{margin-top:0}li{margin:.3rem 0}input,button{padding:.4rem .6rem;margin:.1rem}
   <input type="file" id="files" accept="video/*,image/*" multiple><button onclick="upload()">Yükle</button>
   <p>Fotoğraf süresi (sn): <input id="imgsec" type="number" style="width:5em"><button onclick="api('PUT','/settings',{imageSeconds:$('imgsec').value})">Kaydet</button></p>
   <ul id="videos"></ul></section>
-<section><h2>Maç Takvimi</h2><p id="src" style="opacity:.8"></p><button onclick="api('POST','/goal/test')">Gol animasyonunu test et</button><p>Şampiyonlar Ligi, Avrupa Ligi, Süper Lig ve TFF 1. Lig maçları otomatik gelir. Aşağıdan ekstra maç ekleyebilirsiniz.</p>
+<section><h2>Maç Takvimi</h2><button onclick="api('POST','/goal/test')">Gol animasyonunu test et</button><p>Şampiyonlar Ligi, Avrupa Ligi, Süper Lig ve TFF 1. Lig maçları otomatik gelir. Aşağıdan ekstra maç ekleyebilirsiniz.</p>
   <input id="mh" placeholder="Ev sahibi"><input id="ma" placeholder="Deplasman">
   <input id="mt" placeholder="Saat (örn. 21:45)" size="14"><input id="ml" placeholder="Lig">
   <button onclick="addMatch()">Ekle</button><ul id="matches"></ul></section>
@@ -45,14 +45,7 @@ const addMatch = () => api('POST', '/matches', { home: $('mh').value, away: $('m
 const addReview = () => api('POST', '/reviews', { author: $('ra').value, rating: $('rr').value, text: $('rt').value }).then(() => { $('ra').value = ''; $('rt').value = ''; });
 const addB = () => api('POST', '/birthdays', { name: $('bn').value });
 const saveSchedule = () => api('PUT', '/schedule', { times: $('times').value.split(',').map(s => s.trim()), duration: $('dur').value });
-async function loadSource() {
-  try {
-    const s = await (await fetch('/api/admin/source')).json();
-    $('src').textContent = 'Veri kaynağı: ' + (s.source === 'api-football' ? `API-Football (bugün ${s.used.n}/${s.limit} istek)` : 'ESPN' + (s.apiFootballKey ? ' (API-Football hata verdi veya kota doldu)' : ' (API-Football anahtarı tanımlı değil)'));
-  } catch (e) {}
-}
 async function load() {
-  loadSource();
   const db = await (await fetch('/api/admin/db')).json();
   $('videos').innerHTML = db.videos.map(v => `<li>${v.type==='image'?'🖼':'🎬'} ${esc(v.name)}
     <button onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">↑</button>
