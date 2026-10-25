@@ -59,7 +59,7 @@ async function refreshMatches() {
         const j = await r.json();
         for (const e of j.events || []) {
           const st = e.status.type.state;
-          if (st === 'post') continue;
+          if (st === 'post' && i > 0) continue;
           const c = e.competitions[0].competitors;
           const home = c.find(x => x.homeAway === 'home'), away = c.find(x => x.homeAway === 'away');
           const when = new Date(e.date);
@@ -67,18 +67,23 @@ async function refreshMatches() {
             id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName,
             away: away.team.shortDisplayName || away.team.displayName,
             ts: when.getTime(), day: ymd(when) === today ? 'Bugün' : 'Yarın', time: hm(when),
-            live: st === 'in', score: st === 'in' ? `${home.score}-${away.score}` : null,
+            live: st === 'in', final: st === 'post',
+            hs: st === 'pre' ? null : home.score, as: st === 'pre' ? null : away.score,
+            clock: st === 'in' ? e.status.displayClock : null,
           });
         }
       } catch (err) { console.error('Maç alınamadı', code, err.message); }
     }
   }
   const seen = new Set();
-  autoMatches = out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => a.ts - b.ts);
+  const rank = m => (m.live ? 0 : m.final ? 2 : 1);
+  autoMatches = out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => rank(a) - rank(b) || a.ts - b.ts);
   broadcast({ type: 'state', state: publicState() });
 }
-refreshMatches();
-setInterval(refreshMatches, 5 * 60 * 1000);
+(async function loop() {
+  await refreshMatches();
+  setTimeout(loop, autoMatches.some(m => m.live) ? 45 * 1000 : 5 * 60 * 1000);
+})();
 
 const app = express();
 app.use(express.json());
@@ -98,7 +103,7 @@ const publicState = () => ({
   matches: [
     ...db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)).map(m => ({ ...m, day: 'Bugün' })),
     ...autoMatches,
-  ].slice(0, 14),
+  ].slice(0, 30),
   rates,
 });
 app.get('/api/state', (_, res) => res.json(publicState()));
