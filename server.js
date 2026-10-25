@@ -85,6 +85,12 @@ const prevScores = new Map();
 async function refreshMatches() {
   const out = [];
   const today = ymd(new Date());
+  // bugünün yerel saatle 00:00'ı (ms): yerel saat dizisini UTC gibi okuyup farkı al
+  const nowMs = Date.now();
+  const localNow = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(nowMs);
+  const offsetMs = Math.round((Date.parse(localNow.replace(' ', 'T') + 'Z') - nowMs) / 60000) * 60000;
+  const todayStart = Date.parse(today + 'T00:00:00Z') - offsetMs;
+  const MATCH_MS = 2 * 3600 * 1000; // bir maçın yaklaşık süresi (devre arası dahil)
   // varsayılan skor tablosu (gece yarısını geçen canlı maçlar dahil) + bugün + yarın
   const queries = ['', ...[0, 1].map(i => '?dates=' + ymd(new Date(Date.now() + i * 86400000)).replace(/-/g, ''))];
   for (const q of queries) {
@@ -95,7 +101,8 @@ async function refreshMatches() {
         for (const e of j.events || []) {
           const st = e.status.type.state;
           const when = new Date(e.date);
-          if (st === 'post' && Date.now() - when.getTime() > 6 * 3600 * 1000) continue; // son 6 saatin sonuçları
+          // biten maç: bugün başladıysa ya da gece yarısını geçerek bittiyse göster; dünün eski sonuçlarını gösterme
+          if (st === 'post' && when.getTime() < todayStart && when.getTime() + MATCH_MS <= todayStart) continue;
           if (st === 'pre' && ymd(when) > ymd(new Date(Date.now() + 86400000))) continue;
           const c = e.competitions[0].competitors;
           const home = c.find(x => x.homeAway === 'home'), away = c.find(x => x.homeAway === 'away');
@@ -103,7 +110,7 @@ async function refreshMatches() {
           out.push({
             id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName,
             away: away.team.shortDisplayName || away.team.displayName,
-            ts: when.getTime(), day: d === today ? 'Bugün' : d < today ? 'Dün' : 'Yarın', time: hm(when),
+            ts: when.getTime(), day: d >= today || st !== 'pre' ? (d > today ? 'Yarın' : 'Bugün') : 'Dün', time: hm(when),
             live: st === 'in', final: st === 'post',
             hs: st === 'pre' ? null : home.score, as: st === 'pre' ? null : away.score,
             clock: st === 'in' ? e.status.displayClock : null,
