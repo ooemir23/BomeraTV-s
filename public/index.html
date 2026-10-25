@@ -9,7 +9,9 @@ html,body{height:100%;background:var(--bg);color:var(--white);font-family:Montse
 #app{display:grid;grid-template-columns:1fr 27vw;height:100vh;background:radial-gradient(120% 120% at 20% 0%,#303434 0%,#1b1d1d 70%)}
 #stage{padding:2.4vh 1vw 2.4vh 2vw;display:flex}
 #frame{flex:1;border:1px solid var(--accent);border-radius:4px;padding:.7vh;box-shadow:0 0 0 .6vh #1b1d1d,0 0 0 calc(.6vh + 1px) rgba(144,101,56,.35),0 2vh 6vh rgba(0,0,0,.7)}
-video{width:100%;height:100%;object-fit:cover;background:#000;border-radius:2px;display:block}
+#frame{position:relative}
+video,#img{width:100%;height:100%;object-fit:cover;background:#000;border-radius:2px;display:block}
+#img{display:none}
 #side{padding:2.4vh 2vw 2.4vh 1vw;display:flex;flex-direction:column;gap:2vh;min-height:0}
 #logo{width:100%;aspect-ratio:1285/327;background:url(/logo.png) center/100% 100% no-repeat;border-radius:3px;flex:none}
 #matches{flex:1;min-height:0;overflow:hidden}
@@ -19,16 +21,16 @@ video{width:100%;height:100%;object-fit:cover;background:#000;border-radius:2px;
 .m small{display:block;color:var(--accent2);font-size:1.4vh;letter-spacing:.2em;text-transform:uppercase}
 .m div{font-size:2.5vh;font-weight:600;margin-top:.5vh;line-height:1.2;color:var(--white)}
 .m b{display:block;font-weight:300;font-size:2.1vh;color:var(--soft);letter-spacing:.12em;margin-bottom:.3vh}
-#rates{flex:none;background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:1.6vh 1.2vw;display:flex;flex-direction:column;gap:1vh}
-#rates span{display:flex;justify-content:space-between;align-items:baseline;font-size:4vh;font-weight:600;color:var(--white)}
-#rates span em{font-style:normal;font-weight:300;font-size:2.2vh;color:var(--accent2);letter-spacing:.3em}
+#rates{flex:none;background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:1vh 1vw;display:flex;flex-direction:column;gap:.4vh}
+#rates span{display:flex;justify-content:space-between;align-items:baseline;font-size:2.4vh;font-weight:600;color:var(--white)}
+#rates span em{font-style:normal;font-weight:300;font-size:1.5vh;color:var(--accent2);letter-spacing:.25em}
 #bday{position:fixed;left:0;right:0;bottom:0;height:11vh;background:linear-gradient(90deg,#4a2f18,var(--accent) 50%,#4a2f18);border-top:1px solid var(--soft);display:none;align-items:center;overflow:hidden;z-index:5}
 #bday.on{display:flex}
 #bday p{white-space:nowrap;font-size:5.4vh;font-weight:600;color:var(--white);padding-left:100%;animation:slide var(--d,20s) linear infinite}
 @keyframes slide{to{transform:translateX(-100%)}}
 </style></head><body>
 <div id="app">
-  <div id="stage"><div id="frame"><video id="v" autoplay muted playsinline></video></div></div>
+  <div id="stage"><div id="frame"><video id="v" autoplay muted playsinline></video><img id="img" alt=""></div></div>
   <div id="side">
     <div id="logo"></div>
     <div id="matches"><h2>Maç Takvimi</h2><div id="list"></div></div>
@@ -37,31 +39,40 @@ video{width:100%;height:100%;object-fit:cover;background:#000;border-radius:2px;
 </div>
 <div id="bday"><p id="btxt"></p></div>
 <script>
-const v = document.getElementById('v');
-let videos = [], idx = 0, current = null;
+const v = document.getElementById('v'), img = document.getElementById('img');
+let videos = [], idx = 0, current = null, imageSeconds = 10, timer;
+function next() { clearTimeout(timer); idx++; play(); }
 function play() {
+  clearTimeout(timer);
   if (!videos.length) return;
   idx %= videos.length;
-  current = videos[idx].id;
-  v.src = videos[idx].url;
-  v.play().catch(() => {});
+  const it = videos[idx];
+  current = it.id;
+  if (it.type === 'image') {
+    v.pause(); v.style.display = 'none'; img.style.display = 'block'; img.src = it.url;
+    timer = setTimeout(next, imageSeconds * 1000);
+  } else {
+    img.style.display = 'none'; v.style.display = 'block'; v.src = it.url;
+    v.play().catch(() => {});
+    if (videos.length === 1) v.loop = true; else v.loop = false;
+  }
 }
-v.addEventListener('ended', () => { idx++; play(); });
-v.addEventListener('error', () => setTimeout(() => { idx++; play(); }, 2000));
+v.addEventListener('ended', next);
+v.addEventListener('error', () => { clearTimeout(timer); timer = setTimeout(next, 2000); });
 function setState(s) {
   const ids = s.videos.map(x => x.id).join();
   const changed = ids !== videos.map(x => x.id).join();
-  videos = s.videos;
+  videos = s.videos; imageSeconds = s.imageSeconds || 10;
   if (changed) { const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
-  if (!v.src && videos.length) play();
+  if (current === null && videos.length) play();
   document.getElementById('list').innerHTML = s.matches.map(m =>
-    `<div class="m"><small>${esc(m.league)}</small><div><b>${esc(m.time)}</b>${esc(m.home)} - ${esc(m.away)}</div></div>`).join('')
-    || '<div class="m"><small>Bugün maç yok</small></div>';
+    `<div class="m"><small>${esc(m.league)}</small><div><b>${m.live ? '● CANLI ' + esc(m.score) : esc(m.day) + ' ' + esc(m.time)}</b>${esc(m.home)} - ${esc(m.away)}</div></div>`).join('')
+    || '<div class="m"><small>Yakında maç yok</small></div>';
   setRates(s.rates);
 }
 function setRates(r) {
   const f = x => x ? x.toFixed(2) : '--';
-  document.getElementById('rates').innerHTML = `<span><em>USD</em>${f(r.usd)} ₺</span><span><em>EUR</em>${f(r.eur)} ₺</span>`;
+  document.getElementById('rates').innerHTML = `<span><em>USD</em>${f(r.usd)} ₺</span><span><em>EUR</em>${f(r.eur)} ₺</span><span><em>ALTIN (GR)</em>${f(r.gold)} ₺</span>`;
 }
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let bt;

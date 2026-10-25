@@ -7,10 +7,11 @@ section{background:#1e1812;border:1px solid #3a2f20;padding:1rem 1.2rem;margin-b
 h2{margin-top:0}li{margin:.3rem 0}input,button{padding:.4rem .6rem;margin:.1rem}
 </style></head><body>
 <h1 style="color:#906538">Kafe TV Admin</h1>
-<section><h2>Videolar</h2>
-  <input type="file" id="files" accept="video/*" multiple><button onclick="upload()">Yükle</button>
+<section><h2>Video ve Fotoğraflar</h2>
+  <input type="file" id="files" accept="video/*,image/*" multiple><button onclick="upload()">Yükle</button>
+  <p>Fotoğraf süresi (sn): <input id="imgsec" type="number" style="width:5em"><button onclick="api('PUT','/settings',{imageSeconds:$('imgsec').value})">Kaydet</button></p>
   <ul id="videos"></ul></section>
-<section><h2>Maç Takvimi</h2>
+<section><h2>Maç Takvimi</h2><p>Şampiyonlar Ligi, Avrupa Ligi, Süper Lig ve TFF 1. Lig maçları otomatik gelir. Aşağıdan ekstra maç ekleyebilirsiniz.</p>
   <input id="mh" placeholder="Ev sahibi"><input id="ma" placeholder="Deplasman">
   <input id="mt" placeholder="Saat (örn. 21:45)" size="14"><input id="ml" placeholder="Lig">
   <button onclick="addMatch()">Ekle</button><ul id="matches"></ul></section>
@@ -39,7 +40,7 @@ const addB = () => api('POST', '/birthdays', { name: $('bn').value });
 const saveSchedule = () => api('PUT', '/schedule', { times: $('times').value.split(',').map(s => s.trim()), duration: $('dur').value });
 async function load() {
   const db = await (await fetch('/api/admin/db')).json();
-  $('videos').innerHTML = db.videos.map(v => `<li>${esc(v.name)}
+  $('videos').innerHTML = db.videos.map(v => `<li>${v.type==='image'?'🖼':'🎬'} ${esc(v.name)}
     <button onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">↑</button>
     <button onclick="api('POST','/videos/${v.id}/move',{dir:'down'})">↓</button>
     <button onclick="api('DELETE','/videos/${v.id}')">Sil</button></li>`).join('');
@@ -48,7 +49,7 @@ async function load() {
   $('bdays').innerHTML = db.birthdays.map(b => `<li><label><input type="checkbox" ${b.selected ? 'checked' : ''}
     onchange="api('PATCH','/birthdays/${b.id}',{selected:this.checked})"> ${esc(b.name)}</label>
     <button onclick="api('DELETE','/birthdays/${b.id}')">Sil</button></li>`).join('');
-  $('times').value = db.times.join(','); $('dur').value = db.duration;
+  $('imgsec').value = db.imageSeconds; $('times').value = db.times.join(','); $('dur').value = db.duration;
 }
 load();
 </script></body></html>

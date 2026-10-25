@@ -16,22 +16,69 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40 };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10 };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
-let rates = { usd: null, eur: null, updated: null };
+let rates = { usd: null, eur: null, gold: null, updated: null };
 async function refreshRates() {
   try {
     const r = await fetch('https://open.er-api.com/v6/latest/USD');
     const j = await r.json();
     const t = j.rates.TRY;
-    rates = { usd: t, eur: t / j.rates.EUR, updated: new Date().toISOString() };
+    rates = { ...rates, usd: t, eur: t / j.rates.EUR, updated: new Date().toISOString() };
     broadcast({ type: 'rates', rates });
   } catch (e) { console.error('Kur alınamadı:', e.message); }
+  try {
+    const g = await (await fetch('https://finans.truncgil.com/v4/today.json')).json();
+    rates = { ...rates, gold: Number(g.GRA.Selling) };
+    broadcast({ type: 'rates', rates });
+  } catch (e) { console.error('Altın alınamadı:', e.message); }
 }
 refreshRates();
 setInterval(refreshRates, 10 * 60 * 1000);
+
+const LEAGUES = [
+  ['uefa.champions', 'Şampiyonlar Ligi'],
+  ['uefa.europa', 'Avrupa Ligi'],
+  ['tur.1', 'Süper Lig'],
+  ['tur.2', 'TFF 1. Lig'],
+];
+const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d); // YYYY-MM-DD
+const hm = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+let autoMatches = [];
+async function refreshMatches() {
+  const out = [];
+  const today = ymd(new Date());
+  for (let i = 0; i < 3; i++) {
+    const day = new Date(Date.now() + i * 86400000);
+    const q = ymd(day).replace(/-/g, '');
+    for (const [code, label] of LEAGUES) {
+      try {
+        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${code}/scoreboard?dates=${q}`);
+        const j = await r.json();
+        for (const e of j.events || []) {
+          const st = e.status.type.state;
+          if (st === 'post') continue;
+          const c = e.competitions[0].competitors;
+          const home = c.find(x => x.homeAway === 'home'), away = c.find(x => x.homeAway === 'away');
+          const when = new Date(e.date);
+          out.push({
+            id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName,
+            away: away.team.shortDisplayName || away.team.displayName,
+            ts: when.getTime(), day: ymd(when) === today ? 'Bugün' : 'Yarın', time: hm(when),
+            live: st === 'in', score: st === 'in' ? `${home.score}-${away.score}` : null,
+          });
+        }
+      } catch (err) { console.error('Maç alınamadı', code, err.message); }
+    }
+  }
+  const seen = new Set();
+  autoMatches = out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => a.ts - b.ts);
+  broadcast({ type: 'state', state: publicState() });
+}
+refreshMatches();
+setInterval(refreshMatches, 5 * 60 * 1000);
 
 const app = express();
 app.use(express.json());
@@ -46,8 +93,12 @@ app.use(['/admin.html', '/admin', '/api/admin'], auth);
 app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
 
 const publicState = () => ({
-  videos: db.videos.map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file })),
-  matches: db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)),
+  videos: db.videos.map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file, type: v.type || 'video' })),
+  imageSeconds: db.imageSeconds,
+  matches: [
+    ...db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)).map(m => ({ ...m, day: 'Bugün' })),
+    ...autoMatches,
+  ].slice(0, 14),
   rates,
 });
 app.get('/api/state', (_, res) => res.json(publicState()));
@@ -65,7 +116,7 @@ const changed = () => { save(); broadcast({ type: 'state', state: publicState() 
 
 app.get('/api/admin/db', (_, res) => res.json(db));
 app.post('/api/admin/videos', upload.array('files'), (req, res) => {
-  for (const f of req.files) db.videos.push({ id: uid(), file: f.filename, name: f.originalname });
+  for (const f of req.files) db.videos.push({ id: uid(), file: f.filename, name: f.originalname, type: f.mimetype.startsWith('image/') ? 'image' : 'video' });
   changed(); res.json({ ok: true });
 });
 app.delete('/api/admin/videos/:id', (req, res) => {
@@ -78,6 +129,10 @@ app.post('/api/admin/videos/:id/move', (req, res) => {
   const i = db.videos.findIndex(x => x.id === req.params.id);
   const j = i + (req.body.dir === 'up' ? -1 : 1);
   if (i >= 0 && j >= 0 && j < db.videos.length) [db.videos[i], db.videos[j]] = [db.videos[j], db.videos[i]];
+  changed(); res.json({ ok: true });
+});
+app.put('/api/admin/settings', (req, res) => {
+  db.imageSeconds = Math.max(3, Number(req.body.imageSeconds) || 10);
   changed(); res.json({ ok: true });
 });
 app.post('/api/admin/matches', (req, res) => {
