@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
@@ -85,6 +85,26 @@ const CATALOG = [
   ['fifa.world', 'Dünya Kupası', 'Diğer Ülkeler'],
 ];
 const DEFAULT_LEAGUES = ['uefa.champions', 'uefa.europa', 'tur.1', 'tur.2', 'esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1'];
+const NO_TABLE = new Set(['eng.fa', 'fifa.world']);
+const standings = new Map(); // code -> satırlar
+async function refreshStandings() {
+  const targets = CATALOG.filter(([code, , group]) => enabledLeagues().some(([c]) => c === code) && group !== 'Avrupa Kupaları' && !NO_TABLE.has(code));
+  await Promise.all(targets.map(async ([code]) => {
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${code}/standings`);
+      const j = await r.json();
+      const ch = j.children || [];
+      if (ch.length !== 1) { standings.delete(code); return; } // grup/konferans yapılı veya veri yok
+      const num = (e, n) => { const x = e.stats.find(s => s.name === n); return x ? (x.displayValue ?? String(x.value)) : ''; };
+      standings.set(code, ch[0].standings.entries.map(e => ({
+        rank: Number(num(e, 'rank')), name: e.team.shortDisplayName || e.team.displayName,
+        logo: (e.team.logos || [])[0] ? e.team.logos[0].href : null,
+        gp: num(e, 'gamesPlayed'), w: num(e, 'wins'), d: num(e, 'ties'), l: num(e, 'losses'), gd: num(e, 'pointDifferential'), pts: num(e, 'points'),
+      })).sort((a, b) => a.rank - b.rank));
+    } catch (err) { console.error('Puan durumu alınamadı', code, err.message); }
+  }));
+  broadcast({ type: 'state', state: publicState() });
+}
 const enabledLeagues = () => CATALOG.filter(([code]) => (db.leagues || DEFAULT_LEAGUES).includes(code)).map(([code, label]) => [code, label]);
 const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d); // YYYY-MM-DD
 const hm = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
@@ -150,6 +170,8 @@ async function refreshMatches() {
   }
   broadcast({ type: 'state', state: publicState() });
 }
+refreshStandings();
+setInterval(refreshStandings, 30 * 60 * 1000);
 (async function loop() {
   await refreshMatches();
   setTimeout(loop, autoMatches.some(m => m.live) ? 25 * 1000 : 5 * 60 * 1000);
@@ -174,7 +196,9 @@ const publicState = () => ({
   matches: [
     ...db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)).map(m => ({ ...m, day: 'Bugün' })),
     ...autoMatches.filter(m => enabledLeagues().some(([, label]) => label === m.league)),
-  ].slice(0, 30),
+  ].slice(0, 30).map(m => ({ ...m, channel: (db.channels || {})[`${m.league}|${m.home}|${m.away}`] || (db.leagueChannels || {})[m.league] || null })),
+  showStandings: db.showStandings !== false,
+  standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code)])),
   rates,
   weather,
   traffic,
@@ -197,11 +221,31 @@ app.get('/api/admin/leagues', (_, res) => res.json({
   catalog: CATALOG.map(([code, label, group]) => ({ code, label, group })),
   enabled: enabledLeagues().map(([code]) => code),
 }));
+app.put('/api/admin/options', (req, res) => {
+  if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
+  changed(); res.json({ ok: true });
+});
+app.put('/api/admin/channels/league', (req, res) => {
+  const { league, channel } = req.body;
+  if (!league) return res.status(400).json({ error: 'lig gerekli' });
+  db.leagueChannels = db.leagueChannels || {};
+  const v = String(channel || '').trim().slice(0, 40);
+  if (v) db.leagueChannels[league] = v; else delete db.leagueChannels[league];
+  changed(); res.json({ ok: true });
+});
+app.put('/api/admin/channels/match', (req, res) => {
+  const { key, channel } = req.body;
+  if (!key) return res.status(400).json({ error: 'maç gerekli' });
+  db.channels = db.channels || {};
+  const v = String(channel || '').trim().slice(0, 40);
+  if (v) db.channels[key] = v; else delete db.channels[key];
+  changed(); res.json({ ok: true });
+});
 app.put('/api/admin/leagues', (req, res) => {
   const valid = new Set(CATALOG.map(([code]) => code));
   db.leagues = (req.body.enabled || []).filter(c => valid.has(c));
   changed(); res.json({ ok: true });
-  refreshMatches();
+  refreshMatches(); refreshStandings();
 });
 app.post('/api/admin/videos', upload.array('files'), (req, res) => {
   for (const f of req.files) db.videos.push({ id: uid(), file: f.filename, name: f.originalname, type: f.mimetype.startsWith('image/') ? 'image' : 'video' });

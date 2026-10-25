@@ -18,8 +18,10 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #logo{width:100%;aspect-ratio:1285/327;background:url(/logo.png) center/100% 100% no-repeat;border-radius:12px;flex:none;box-shadow:0 1vh 3vh rgba(0,0,0,.4)}
 #matches{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 #mhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.6vh;padding:0 .3vw}
-#mhead h2{font-size:1.7vh;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--soft)}
-#dots{display:flex;gap:.45vw}
+#mhead h2 em{font-style:normal;font-size:1.25vh;color:var(--accent2);letter-spacing:.2em;margin-left:.8vw;font-weight:600}
+#mhead h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-size:1.7vh;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--soft)}
+#dots{display:flex;gap:.45vw;flex:none;margin-left:1vw}
+#dots .cnt{font-size:1.3vh;letter-spacing:.12em;color:var(--mute);font-weight:600}
 #dots i{width:.55vw;height:.55vw;border-radius:50%;background:rgba(255,255,255,.2);transition:.4s}
 #dots i.on{background:var(--accent2);width:1.5vw;border-radius:1vw}
 #mbody{flex:1;min-height:0;position:relative}
@@ -40,9 +42,23 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #tidx .sub strong{font-size:2.4vh;font-weight:700;color:var(--c)}
 #tlegend{position:absolute;left:1vw;right:1vw;bottom:1.2vh;background:rgba(27,29,29,.82);border-radius:10px;padding:.8vh .9vw;display:flex;align-items:center;gap:.8vw;font-size:1.25vh;letter-spacing:.12em;text-transform:uppercase;color:var(--soft);font-weight:600}
 #tlegend i{flex:1;height:.9vh;border-radius:1vh;background:linear-gradient(90deg,#3ecf4a,#f2c230,#ee3b2f,#8b1a14)}
-.m{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:2.4vh .8vw 1vh;flex:none}
+.m{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:2.4vh .8vw 2.3vh;flex:none}
 .m .dayl{position:absolute;top:.9vh;left:.9vw;font-size:1.1vh;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);font-weight:500}
-.m .corner{position:absolute;top:.8vh;right:.8vw}
+.m .chn{position:absolute;right:.8vw;bottom:.7vh;font-size:1.15vh;font-weight:600;letter-spacing:.06em;color:var(--accent2);max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbl{display:flex;flex-direction:column;gap:.25vh;height:100%}
+.th,.trw{display:grid;grid-template-columns:2.6vh 1fr repeat(4,2.9vh) 4vh 4vh;align-items:center;gap:.25vw;padding:0 .6vw}
+.th{height:3vh;flex:none;font-size:1.15vh;letter-spacing:.14em;color:var(--mute);font-weight:600;text-align:center}
+.th span:nth-child(2){text-align:left}
+.trw{flex:1 1 0;min-height:2.65vh;max-height:4.8vh;border-radius:8px;background:rgba(255,255,255,.035);font-size:1.45vh;text-align:center}
+.trw:nth-child(odd){background:rgba(255,255,255,.065)}
+.trw .rk{font-weight:700;color:var(--mute)}
+.trw.top1{background:linear-gradient(90deg,rgba(201,149,92,.3),rgba(201,149,92,.08))}
+.trw.top1 .rk{color:var(--accent2)}
+.trw .tn{display:flex;align-items:center;gap:.6vw;text-align:left;min-width:0;font-weight:600}
+.trw .tn img{width:2.1vh;height:2.1vh;object-fit:contain;flex:none}
+.trw .tn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.trw .pt{font-weight:800;color:var(--white)}
+position:absolute;top:.8vh;right:.8vw}
 .pill{font-weight:700;letter-spacing:.08em;padding:.25vh .6vw;border-radius:2vh;background:rgba(255,255,255,.08);color:var(--soft);font-size:1.15vh;white-space:nowrap}
 .pill.live{background:rgba(255,77,77,.16);color:var(--live)}
 .pill.live::before{content:"";display:inline-block;width:.5vh;height:.5vh;margin-right:.45vw;border-radius:50%;background:var(--live);animation:pulse 1.2s infinite}
@@ -181,7 +197,13 @@ function card(m) {
   const corner = m.live ? `<span class="pill live">CANLI ${esc(m.clock || '')}</span>` : m.final ? '<span class="pill fin">MS</span>' : '';
   const dayl = !m.live && !m.final ? `<span class="dayl">${esc(m.day)}</span>` : '';
   const mid = hasScore ? `<div class="sc ${m.final ? 'fin' : ''}">${esc(m.hs)}<i>-</i>${esc(m.as)}</div>` : `<div class="tm">${esc(m.time)}</div>`;
-  return `<div class="m">${dayl}<span class="corner">${corner}</span><div class="tr3">${team(m.home, m.hl, m.final && aw)}<div class="mid">${mid}</div>${team(m.away, m.al, m.final && hw)}</div></div>`;
+  const chn = m.channel ? `<span class="chn">📺 ${esc(m.channel)}</span>` : '';
+  return `<div class="m">${dayl}<span class="corner">${corner}</span><div class="tr3">${team(m.home, m.hl, m.final && aw)}<div class="mid">${mid}</div>${team(m.away, m.al, m.final && hw)}</div>${chn}</div>`;
+}
+let standingsData = {}, showStandings = true, TROWS = 10;
+function tableHtml(rows) {
+  return '<div class="tbl"><div class="th"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AV</span><span>P</span></div>' +
+    rows.map(r => `<div class="trw ${r.rank === 1 ? 'top1' : ''}"><span class="rk">${esc(r.rank)}</span><span class="tn">${r.logo ? `<img src="${esc(r.logo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : ''}<b>${esc(r.name)}</b></span><span>${esc(r.gp)}</span><span>${esc(r.w)}</span><span>${esc(r.d)}</span><span>${esc(r.l)}</span><span>${esc(r.gd)}</span><span class="pt">${esc(r.pts)}</span></div>`).join('') + '</div>';
 }
 function fit() {
   const list = document.getElementById('list');
@@ -190,13 +212,22 @@ function fit() {
   const ch = list.firstElementChild.getBoundingClientRect().height + 2;
   const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
   PER_PAGE = Math.max(1, Math.floor((list.clientHeight + gap) / (ch + gap)));
+  const vh = innerHeight / 100;
+  TROWS = Math.max(5, Math.floor((list.clientHeight - 3.3 * vh) / (2.9 * vh)));
 }
 function buildPages() {
   const groups = new Map();
   for (const m of matches) { if (!groups.has(m.league)) groups.set(m.league, []); groups.get(m.league).push(m); }
   pages = [];
   for (const [league, items] of groups)
-    for (let i = 0; i < items.length; i += PER_PAGE) pages.push({ type: 'league', league, items: items.slice(i, i + PER_PAGE) });
+    {
+      for (let i = 0; i < items.length; i += PER_PAGE) pages.push({ type: 'league', league, items: items.slice(i, i + PER_PAGE) });
+      const rows = showStandings && standingsData[league];
+      if (rows && rows.length) {
+        const parts = Math.ceil(rows.length / TROWS), per = Math.ceil(rows.length / parts);
+        for (let i = 0; i < parts; i++) pages.push({ type: 'table', league, rows: rows.slice(i * per, (i + 1) * per), part: i + 1, parts });
+      }
+    }
   if (!pages.length) pages.push({ type: 'empty' });
   pages.push({ type: 'traffic' });
 }
@@ -215,10 +246,11 @@ function render() {
   const isTraffic = pg.type === 'traffic';
   tr.style.visibility = isTraffic ? 'visible' : 'hidden';
   list.style.display = isTraffic ? 'none' : 'flex';
-  document.getElementById('mtitle').textContent = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.league;
+  document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
+  else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
   else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
-  dots.innerHTML = pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
+  dots.innerHTML = pages.length > 10 ? `<span class="cnt">${page + 1} / ${pages.length}</span>` : pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
 }
 function tick() {
   if (PIN && PIN !== 'goal') return;
@@ -231,9 +263,9 @@ function schedule() {
   rot = setTimeout(tick, pages[page]?.type === 'traffic' ? TRAFFIC_MS : PAGE_MS);
 }
 addEventListener('resize', () => { fit(); render(); });
-function setMatches(list) {
-  const same = JSON.stringify(list) === JSON.stringify(matches);
-  matches = list;
+function setMatches(list, st, show) {
+  const same = JSON.stringify([list, st, show]) === JSON.stringify([matches, standingsData, showStandings]);
+  matches = list; standingsData = st || {}; showStandings = show !== false;
   if (!same || !pages.length) { render(); if (!rot) schedule(); }
 }
 let reviews = [], revIdx = 0, revTimer;
@@ -284,7 +316,7 @@ function setState(s) {
   videos = s.videos; imageSeconds = s.imageSeconds || 10;
   if (changed) { const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
   if (current === null && videos.length) play();
-  setMatches(s.matches);
+  setMatches(s.matches, s.standings, s.showStandings);
   setTicker(s.matches);
   setRates(s.rates);
   if (s.weather) setWeather(s.weather);

@@ -175,6 +175,20 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div id="leagues"></div>
   </div>
   <div class="card">
+    <h2>Puan Durumu</h2>
+    <p class="hint">Her ülke liginin maç sayfalarından sonra güncel puan durumu tablosu gösterilir. Kupalarda (Şampiyonlar Ligi gibi), gruplu liglerde ve TFF 1. Lig'de puan durumu verisi yoktur, tablo gösterilmez.</p>
+    <div class="item" style="margin-bottom:0"><label class="sw"><input type="checkbox" id="showst" onchange="api('PUT','/options',{showStandings:this.checked},this.checked?'Puan durumu açıldı':'Puan durumu kapatıldı')"><i></i></label>
+      <div class="body"><b>Puan durumunu ekranda göster</b></div></div>
+  </div>
+  <div class="card">
+    <h2>Yayın Kanalları</h2>
+    <p class="hint">Maç kartlarının sağ alt köşesinde "📺 kanal adı" olarak görünür. Yayıncı bilgisi hiçbir ücretsiz kaynakta olmadığı için bunu siz girersiniz. Önce ligin genel kanalını, gerekirse tek tek maçları değiştirin. Boş bırakılan yerde kanal gösterilmez.</p>
+    <h3 style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px">Lig için genel kanal</h3>
+    <div id="lch" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr));margin-bottom:22px"></div>
+    <h3 style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px">Tek tek maçlar (isteğe bağlı)</h3>
+    <div id="mch"></div>
+  </div>
+  <div class="card">
     <h2>Elle Maç Ekle</h2><p class="hint">Otomatik listede olmayan bir maçı (örneğin özel bir etkinlik) buradan ekleyebilirsiniz.</p>
     <div class="row">
       <div class="fld"><label class="f">Ev sahibi</label><input type="text" id="mh"></div>
@@ -236,7 +250,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let db = {}, L = { catalog: [], enabled: [] }, times = [], timesDirty = false;
+let db = {}, pub = {}, L = { catalog: [], enabled: [] }, times = [], timesDirty = false;
 const DEFAULTS = ['uefa.champions','uefa.europa','tur.1','tur.2','esp.1','eng.1','ita.1','ger.1','fra.1'];
 
 function toast(msg, err) {
@@ -312,7 +326,7 @@ function renderLeagues() {
 }
 let saveTimer;
 function setLeagues(codes) {
-  L.enabled = codes; renderLeagues(); counts();
+  L.enabled = codes; renderLeagues(); renderChannels(); counts();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => { const ok = await api('PUT', '/leagues', { enabled: codes }); if (ok) toast('Lig seçimi kaydedildi'); }, 500);
 }
@@ -331,6 +345,23 @@ async function addMatch() {
   const ok = await api('POST', '/matches', { home: $('mh').value.trim(), away: $('ma').value.trim(), time: $('mt').value, league: $('ml').value.trim() }, 'Maç eklendi');
   if (ok) ['mh', 'ma', 'mt', 'ml'].forEach(i => $(i).value = '');
 }
+
+/* kanallar + puan durumu */
+function renderChannels() {
+  $('showst').checked = db.showStandings !== false;
+  const lc = db.leagueChannels || {}, mc = db.channels || {};
+  const enabled = L.catalog.filter(l => L.enabled.includes(l.code));
+  $('lch').innerHTML = enabled.length ? enabled.map(l => `<div><label class="f">${esc(l.label)}</label>
+    <input type="text" maxlength="40" placeholder="örn. beIN Sports" value="${esc(lc[l.label] || '')}" data-league="${esc(l.label)}" onchange="saveLeagueCh(this)"></div>`).join('')
+    : '<div class="empty" style="grid-column:1/-1">Önce yukarıdan lig seçin.</div>';
+  const up = (pub.matches || []).filter(m => !m.final);
+  $('mch').innerHTML = up.length ? up.map(m => { const key = `${m.league}|${m.home}|${m.away}`; return `<div class="item">
+    <div class="body"><b>${esc(m.home)} – ${esc(m.away)}</b><span>${esc(m.league)} · ${esc(m.day)} ${esc(m.time)}</span></div>
+    <input type="text" maxlength="40" style="max-width:220px" placeholder="${esc(lc[m.league] || 'Kanal yok')}" value="${esc(mc[key] || '')}" data-key="${esc(key)}" onchange="saveMatchCh(this)"></div>`; }).join('')
+    : '<div class="empty">Şu an listelenecek maç yok.</div>';
+}
+const saveLeagueCh = el => api('PUT', '/channels/league', { league: el.dataset.league, channel: el.value }, 'Kanal kaydedildi');
+const saveMatchCh = el => api('PUT', '/channels/match', { key: el.dataset.key, channel: el.value }, 'Kanal kaydedildi');
 
 /* yorumlar */
 function renderReviews() {
@@ -366,10 +397,10 @@ function counts() {
   $('b-bday').textContent = $('s-bday').textContent = sel;
 }
 async function load() {
-  const [d, l] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json())]);
-  db = d; L = l; if (!timesDirty) times = [...(db.times || [])];
+  const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
+  db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
   $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
-  renderMedia(); renderLeagues(); renderManual(); renderReviews(); renderBday(); counts();
+  renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
 </script></body></html>
