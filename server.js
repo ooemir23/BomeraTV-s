@@ -85,23 +85,25 @@ const prevScores = new Map();
 async function refreshMatches() {
   const out = [];
   const today = ymd(new Date());
-  for (let i = 0; i < 2; i++) {
-    const day = new Date(Date.now() + i * 86400000);
-    const q = ymd(day).replace(/-/g, '');
+  // varsayılan skor tablosu (gece yarısını geçen canlı maçlar dahil) + bugün + yarın
+  const queries = ['', ...[0, 1].map(i => '?dates=' + ymd(new Date(Date.now() + i * 86400000)).replace(/-/g, ''))];
+  for (const q of queries) {
     for (const [code, label] of LEAGUES) {
       try {
-        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${code}/scoreboard?dates=${q}`);
+        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${code}/scoreboard${q}`);
         const j = await r.json();
         for (const e of j.events || []) {
           const st = e.status.type.state;
-          if (st === 'post' && i > 0) continue;
+          const when = new Date(e.date);
+          if (st === 'post' && Date.now() - when.getTime() > 6 * 3600 * 1000) continue; // son 6 saatin sonuçları
+          if (st === 'pre' && ymd(when) > ymd(new Date(Date.now() + 86400000))) continue;
           const c = e.competitions[0].competitors;
           const home = c.find(x => x.homeAway === 'home'), away = c.find(x => x.homeAway === 'away');
-          const when = new Date(e.date);
+          const d = ymd(when);
           out.push({
             id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName,
             away: away.team.shortDisplayName || away.team.displayName,
-            ts: when.getTime(), day: ymd(when) === today ? 'Bugün' : 'Yarın', time: hm(when),
+            ts: when.getTime(), day: d === today ? 'Bugün' : d < today ? 'Dün' : 'Yarın', time: hm(when),
             live: st === 'in', final: st === 'post',
             hs: st === 'pre' ? null : home.score, as: st === 'pre' ? null : away.score,
             clock: st === 'in' ? e.status.displayClock : null,
