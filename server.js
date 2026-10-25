@@ -119,6 +119,7 @@ async function refreshMatches() {
             id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName,
             away: away.team.shortDisplayName || away.team.displayName,
             ts: when.getTime(), day: d >= today || st !== 'pre' ? (d > today ? 'Yarın' : 'Bugün') : 'Dün', time: hm(when),
+            hl: home.team.logo || null, al: away.team.logo || null,
             live: st === 'in', final: st === 'post',
             hs: st === 'pre' ? null : home.score, as: st === 'pre' ? null : away.score,
             clock: st === 'in' ? e.status.displayClock : null,
