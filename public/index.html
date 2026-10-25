@@ -20,7 +20,11 @@ video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radi
 #dots i{width:.55vw;height:.55vw;border-radius:50%;background:rgba(255,255,255,.2);transition:.4s}
 #dots i.on{background:var(--accent2);width:1.5vw;border-radius:1vw}
 #list{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1vh;transition:opacity .45s,transform .45s}
-#list.out{opacity:0;transform:translateY(1.2vh)}
+#list.out,#traffic.out{opacity:0;transform:translateY(1.2vh)}
+#traffic{flex:1;min-height:0;position:relative;overflow:hidden;border-radius:14px;border:1px solid rgba(201,149,92,.4);display:none;background:#cfe3ee;transition:opacity .45s,transform .45s}
+#traffic iframe{position:absolute;width:160%;height:160%;left:-30%;top:-30%;border:0;pointer-events:none}
+#tlegend{position:absolute;left:1vw;right:1vw;bottom:1.2vh;background:rgba(27,29,29,.82);border-radius:10px;padding:.8vh .9vw;display:flex;align-items:center;gap:.8vw;font-size:1.25vh;letter-spacing:.12em;text-transform:uppercase;color:var(--soft);font-weight:600}
+#tlegend i{flex:1;height:.9vh;border-radius:1vh;background:linear-gradient(90deg,#3ecf4a,#f2c230,#ee3b2f,#8b1a14)}
 .m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.9vh .9vw;flex:none;display:flex;flex-direction:column;gap:.4vh}
 .m .top{display:flex;justify-content:space-between;align-items:center;font-size:1.15vh;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:500}
 .pill{font-weight:600;letter-spacing:.08em;padding:.2vh .55vw;border-radius:2vh;background:rgba(255,255,255,.08);color:var(--soft);font-size:1.15vh;white-space:nowrap}
@@ -50,7 +54,7 @@ video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radi
   <div id="stage"><div id="frame"><video id="v" autoplay muted playsinline></video><img id="img" alt=""></div></div>
   <div id="side">
     <div id="logo"></div>
-    <div id="matches"><div id="mhead"><h2>Canlı &amp; Maçlar</h2><div id="dots"></div></div><div id="list"></div></div>
+    <div id="matches"><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div>
     <div id="rates"></div>
   </div>
 </div>
@@ -78,48 +82,74 @@ v.addEventListener('ended', next);
 v.addEventListener('error', () => { clearTimeout(timer); timer = setTimeout(next, 2000); });
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let PER_PAGE = 5; const PAGE_MS = 9000;
-let matches = [], page = 0, rot;
+let PER_PAGE = 5; const PAGE_MS = 9000, TRAFFIC_MS = 14000;
+const TRAFFIC_URL = 'https://yandex.com.tr/map-widget/v1/?ll=28.95%2C41.04&z=10&l=map%2Ctrf&lang=tr_TR';
+const PIN = new URLSearchParams(location.search).get('p');
+let matches = [], page = 0, pages = [], rot, trafficLoaded = 0;
 function card(m) {
   const hasScore = m.hs != null;
   const hw = hasScore && +m.hs > +m.as, aw = hasScore && +m.as > +m.hs;
+  const left = m.live ? 'Canlı' : m.final ? esc(m.day) : esc(m.day);
   const pill = m.live ? `<span class="pill live">CANLI ${esc(m.clock || '')}</span>`
     : m.final ? '<span class="pill fin">MS</span>'
-    : `<span class="pill">${esc(m.day)} ${esc(m.time)}</span>`;
-  const sc = (x, win) => hasScore ? `<b>${esc(x)}</b>` : '';
-  return `<div class="m"><div class="top"><span>${esc(m.league)}</span>${pill}</div>
+    : `<span class="pill">${esc(m.time)}</span>`;
+  const sc = x => hasScore ? `<b>${esc(x)}</b>` : '';
+  return `<div class="m"><div class="top"><span>${left}</span>${pill}</div>
     <div class="row ${m.final && aw ? 'lose' : ''}"><span>${esc(m.home)}</span>${sc(m.hs)}</div>
     <div class="row ${m.final && hw ? 'lose' : ''}"><span>${esc(m.away)}</span>${sc(m.as)}</div></div>`;
 }
 function fit() {
   const list = document.getElementById('list');
-  list.innerHTML = card({league: 'x', home: 'x', away: 'x', hs: 0, as: 0, final: true});
+  list.style.display = 'flex';
+  list.innerHTML = card({home: 'x', away: 'x', hs: 0, as: 0, final: true, day: 'x'});
   const ch = list.firstElementChild.getBoundingClientRect().height + 2;
   const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
   PER_PAGE = Math.max(1, Math.floor((list.clientHeight + gap) / (ch + gap)));
 }
-addEventListener('resize', () => { fit(); render(); });
-function render() {
-  const list = document.getElementById('list'), dots = document.getElementById('dots');
-  if (!window.fitted) { fit(); window.fitted = true; }
-  const pages = Math.max(1, Math.ceil(matches.length / PER_PAGE));
-  page %= pages;
-  list.innerHTML = matches.length
-    ? matches.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE).map(card).join('')
-    : '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
-  dots.innerHTML = pages > 1 ? Array.from({length: pages}, (_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
+function buildPages() {
+  const groups = new Map();
+  for (const m of matches) { if (!groups.has(m.league)) groups.set(m.league, []); groups.get(m.league).push(m); }
+  pages = [];
+  for (const [league, items] of groups)
+    for (let i = 0; i < items.length; i += PER_PAGE) pages.push({ type: 'league', league, items: items.slice(i, i + PER_PAGE) });
+  if (!pages.length) pages.push({ type: 'empty' });
+  pages.push({ type: 'traffic' });
 }
+function loadTraffic(force) {
+  const f = document.querySelector('#traffic iframe');
+  if (force || Date.now() - trafficLoaded > 4 * 60 * 1000) { f.src = TRAFFIC_URL; trafficLoaded = Date.now(); }
+}
+function render() {
+  const list = document.getElementById('list'), tr = document.getElementById('traffic'), dots = document.getElementById('dots');
+  if (!window.fitted) { fit(); window.fitted = true; }
+  buildPages();
+  page = PIN === 'traffic' ? pages.length - 1 : page % pages.length;
+  const pg = pages[page];
+  const isTraffic = pg.type === 'traffic';
+  tr.style.display = isTraffic ? 'block' : 'none';
+  list.style.display = isTraffic ? 'none' : 'flex';
+  document.getElementById('mtitle').textContent = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.league;
+  if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
+  else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
+  else loadTraffic();
+  dots.innerHTML = pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
+  if (page === pages.length - 2) loadTraffic();
+}
+function tick() {
+  if (PIN) return;
+  const el = document.getElementById(pages[page]?.type === 'traffic' ? 'traffic' : 'list');
+  el.classList.add('out');
+  setTimeout(() => { page++; render(); el.classList.remove('out'); schedule(); }, 450);
+}
+function schedule() {
+  clearTimeout(rot);
+  rot = setTimeout(tick, pages[page]?.type === 'traffic' ? TRAFFIC_MS : PAGE_MS);
+}
+addEventListener('resize', () => { fit(); render(); });
 function setMatches(list) {
   const same = JSON.stringify(list) === JSON.stringify(matches);
   matches = list;
-  if (!same) render();
-  clearInterval(rot);
-  rot = setInterval(() => {
-    if (matches.length <= PER_PAGE) return;
-    const el = document.getElementById('list');
-    el.classList.add('out');
-    setTimeout(() => { page++; render(); el.classList.remove('out'); }, 450);
-  }, PAGE_MS);
+  if (!same || !pages.length) { render(); if (!rot) schedule(); }
 }
 function setState(s) {
   const ids = s.videos.map(x => x.id).join();
