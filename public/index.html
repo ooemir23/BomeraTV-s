@@ -6,7 +6,7 @@
 :root{--bg:#1b1d1d;--card:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--white:#FBFBFB;--soft:#E5E5E5;--mute:#9aa0a0;--accent:#906538;--accent2:#c9955c;--live:#ff4d4d}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;background:var(--bg);color:var(--white);font-family:Montserrat,system-ui,sans-serif;overflow:hidden;cursor:none}
-#app{display:grid;grid-template-columns:1fr 28vw;height:100vh;height:100dvh;background:radial-gradient(110% 90% at 15% 0%,#2c3030 0%,#1b1d1d 65%)}
+#app{display:grid;grid-template-columns:1fr 28vw;grid-template-rows:minmax(0,1fr) 6.5vh;height:100vh;height:100dvh;background:radial-gradient(110% 90% at 15% 0%,#2c3030 0%,#1b1d1d 65%)}
 #stage{padding:2.4vh 1vw 2.4vh 2vw;display:flex}
 #frame{flex:1;position:relative;border-radius:18px;padding:.6vh;background:linear-gradient(145deg,rgba(201,149,92,.7),rgba(144,101,56,.15) 40%,rgba(201,149,92,.5));box-shadow:0 3vh 8vh rgba(0,0,0,.65)}
 video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radius:15px;display:block}
@@ -19,10 +19,11 @@ video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radi
 #dots{display:flex;gap:.45vw}
 #dots i{width:.55vw;height:.55vw;border-radius:50%;background:rgba(255,255,255,.2);transition:.4s}
 #dots i.on{background:var(--accent2);width:1.5vw;border-radius:1vw}
-#list{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1vh;transition:opacity .45s,transform .45s}
+#mbody{flex:1;min-height:0;position:relative}
+#list{position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;gap:1vh;transition:opacity .45s,transform .45s}
 #list.out,#traffic.out{opacity:0;transform:translateY(1.2vh)}
-#traffic{flex:1;min-height:0;position:relative;overflow:hidden;border-radius:14px;border:1px solid rgba(201,149,92,.4);display:none;background:#cfe3ee;transition:opacity .45s,transform .45s}
-#traffic iframe{position:absolute;width:160%;height:160%;left:-30%;top:-30%;border:0;pointer-events:none}
+#traffic{position:absolute;inset:0;overflow:hidden;border-radius:14px;border:1px solid rgba(201,149,92,.4);visibility:hidden;background:#cfe3ee;transition:opacity .45s,transform .45s}
+#traffic iframe{position:absolute;width:1600px;height:1600px;left:50%;top:50%;margin:-800px 0 0 -800px;border:0;pointer-events:none}
 #tlegend{position:absolute;left:1vw;right:1vw;bottom:1.2vh;background:rgba(27,29,29,.82);border-radius:10px;padding:.8vh .9vw;display:flex;align-items:center;gap:.8vw;font-size:1.25vh;letter-spacing:.12em;text-transform:uppercase;color:var(--soft);font-weight:600}
 #tlegend i{flex:1;height:.9vh;border-radius:1vh;background:linear-gradient(90deg,#3ecf4a,#f2c230,#ee3b2f,#8b1a14)}
 .m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.9vh .9vw;flex:none;display:flex;flex-direction:column;gap:.4vh}
@@ -45,6 +46,19 @@ video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radi
 .rt small{display:block;font-size:1.2vh;letter-spacing:.25em;color:var(--accent2);font-weight:600;margin-bottom:.4vh}
 .rt strong{font-size:2.6vh;font-weight:600;white-space:nowrap}
 .rt strong i{font-style:normal;font-size:1.6vh;color:var(--mute);margin-left:.2vw;font-weight:400}
+#ticker{grid-column:1/3;display:flex;align-items:stretch;background:linear-gradient(180deg,#171919,#0e0f0f);border-top:1px solid rgba(201,149,92,.55);overflow:hidden;position:relative}
+#tlabel{flex:none;display:flex;align-items:center;gap:.7vw;padding:0 2vw;background:linear-gradient(90deg,#906538,#b07a45);color:#fff;font-size:2vh;font-weight:700;letter-spacing:.22em;text-transform:uppercase;position:relative;z-index:2;box-shadow:1vw 0 2vw rgba(0,0,0,.5)}
+#tlabel::before{content:"";width:1vh;height:1vh;border-radius:50%;background:#fff;animation:pulse 1.2s infinite}
+#tview{flex:1;overflow:hidden;display:flex;align-items:center;mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent)}
+#ttrack{display:flex;flex:none;white-space:nowrap;animation:tscroll 60s linear infinite;will-change:transform}
+#ttrack>div{display:flex;align-items:center;flex:none}
+@keyframes tscroll{to{transform:translateX(-50%)}}
+.ti{display:flex;align-items:center;gap:.8vw;font-size:2.7vh;font-weight:500;padding:0 2.4vw;color:var(--white)}
+.ti .lg{font-size:1.6vh;letter-spacing:.2em;color:var(--accent2);font-weight:600;text-transform:uppercase}
+.ti .sc{font-weight:700;background:rgba(255,255,255,.1);padding:.3vh 1vw;border-radius:1vh;font-size:2.7vh}
+.ti .lv{color:#ff5a5a;font-weight:600;font-size:1.8vh;letter-spacing:.08em}
+.ti .ft{color:var(--mute);font-size:1.8vh;letter-spacing:.08em}
+.ti::after{content:"◆";color:var(--accent);font-size:1.3vh;margin-left:2.4vw}
 #bday{position:fixed;left:0;right:0;bottom:0;height:11vh;background:linear-gradient(90deg,#4a2f18,var(--accent) 50%,#4a2f18);border-top:1px solid var(--soft);display:none;align-items:center;overflow:hidden;z-index:5}
 #bday.on{display:flex}
 #bday p{white-space:nowrap;font-size:5.4vh;font-weight:600;color:var(--white);padding-left:100%;animation:slide var(--d,20s) linear infinite}
@@ -54,9 +68,10 @@ video,#img{width:100%;height:100%;object-fit:contain;background:#000;border-radi
   <div id="stage"><div id="frame"><video id="v" autoplay muted playsinline></video><img id="img" alt=""></div></div>
   <div id="side">
     <div id="logo"></div>
-    <div id="matches"><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div>
+    <div id="matches"><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
     <div id="rates"></div>
   </div>
+  <div id="ticker"><div id="tlabel"><span id="tl">Canlı Skorlar</span></div><div id="tview"><div id="ttrack"><div id="ta"></div><div id="tb"></div></div></div></div>
 </div>
 <div id="bday"><p id="btxt"></p></div>
 <script>
@@ -115,10 +130,12 @@ function buildPages() {
   if (!pages.length) pages.push({ type: 'empty' });
   pages.push({ type: 'traffic' });
 }
-function loadTraffic(force) {
+function loadTraffic() {
   const f = document.querySelector('#traffic iframe');
-  if (force || Date.now() - trafficLoaded > 4 * 60 * 1000) { f.src = TRAFFIC_URL; trafficLoaded = Date.now(); }
+  f.src = TRAFFIC_URL; trafficLoaded = Date.now();
 }
+loadTraffic();
+setInterval(() => { if (pages[page] && pages[page].type !== 'traffic') loadTraffic(); }, 4 * 60 * 1000);
 function render() {
   const list = document.getElementById('list'), tr = document.getElementById('traffic'), dots = document.getElementById('dots');
   if (!window.fitted) { fit(); window.fitted = true; }
@@ -126,14 +143,12 @@ function render() {
   page = PIN === 'traffic' ? pages.length - 1 : page % pages.length;
   const pg = pages[page];
   const isTraffic = pg.type === 'traffic';
-  tr.style.display = isTraffic ? 'block' : 'none';
+  tr.style.visibility = isTraffic ? 'visible' : 'hidden';
   list.style.display = isTraffic ? 'none' : 'flex';
   document.getElementById('mtitle').textContent = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.league;
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
-  else loadTraffic();
   dots.innerHTML = pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
-  if (page === pages.length - 2) loadTraffic();
 }
 function tick() {
   if (PIN) return;
@@ -151,6 +166,28 @@ function setMatches(list) {
   matches = list;
   if (!same || !pages.length) { render(); if (!rot) schedule(); }
 }
+let tickKey = '';
+function setTicker(list) {
+  const live = list.filter(m => m.live), fin = list.filter(m => m.final);
+  const shown = live.length || fin.length ? [...live, ...fin] : list.slice(0, 8);
+  const label = live.length ? 'Canlı Skorlar' : fin.length ? 'Günün Sonuçları' : 'Sıradaki Maçlar';
+  const items = shown.map(m => {
+    const mid = m.hs != null ? `<span class="sc">${esc(m.hs)} - ${esc(m.as)}</span>` : '<span class="ft">vs</span>';
+    const tag = m.live ? `<span class="lv">● ${esc(m.clock || 'CANLI')}</span>` : m.final ? '<span class="ft">MS</span>' : `<span class="ft">${esc(m.day)} ${esc(m.time)}</span>`;
+    return `<span class="ti"><span class="lg">${esc(m.league)}</span><span>${esc(m.home)}</span>${mid}<span>${esc(m.away)}</span>${tag}</span>`;
+  }).join('') || '<span class="ti"><span class="ft">Şu an gösterilecek maç yok</span></span>';
+  document.getElementById('tl').textContent = label;
+  const a = document.getElementById('ta'), b = document.getElementById('tb'), track = document.getElementById('ttrack');
+  // tek kopya ekrandan kısaysa çoğalt ki boşluk kalmasın
+  a.innerHTML = items; 
+  const view = document.getElementById('tview').clientWidth;
+  let reps = Math.max(1, Math.ceil(view / Math.max(1, a.scrollWidth)));
+  a.innerHTML = items.repeat(reps); b.innerHTML = items.repeat(reps);
+  const secs = Math.max(20, a.scrollWidth / (innerWidth * 0.055));
+  const key = shown.map(m => m.id).join() + label;
+  if (key !== tickKey) { tickKey = key; track.style.animation = 'none'; void track.offsetWidth; track.style.animation = ''; }
+  track.style.animationDuration = secs + 's';
+}
 function setState(s) {
   const ids = s.videos.map(x => x.id).join();
   const changed = ids !== videos.map(x => x.id).join();
@@ -158,6 +195,7 @@ function setState(s) {
   if (changed) { const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
   if (current === null && videos.length) play();
   setMatches(s.matches);
+  setTicker(s.matches);
   setRates(s.rates);
 }
 function setRates(r) {
