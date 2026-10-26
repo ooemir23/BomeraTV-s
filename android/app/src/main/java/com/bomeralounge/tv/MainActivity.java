@@ -1,6 +1,7 @@
 package com.bomeralounge.tv;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -81,7 +82,16 @@ public class MainActivity extends Activity {
         s.setUseWideViewPort(true);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         web.addJavascriptInterface(new Bridge(), "BomeraNative");
-        web.setWebChromeClient(new WebChromeClient());
+        web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        web.setWebChromeClient(new WebChromeClient() {
+            // Android'in video yüklenirken gösterdiği varsayılan "play" simgesini kaldırır
+            @Override public Bitmap getDefaultVideoPoster() {
+                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+            }
+            @Override public View getVideoLoadingProgressView() {
+                return new View(MainActivity.this);
+            }
+        });
         web.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 handler.removeCallbacks(reloadTask);

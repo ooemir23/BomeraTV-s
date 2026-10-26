@@ -1,6 +1,17 @@
 <!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TV</title>
+<script>
+/* APK içinde ya da ?lite=1 ile hafif mod: ağır efektler kapanır */
+(function () {
+  window.__fx = 'auto';
+  window.__applyFx = function () {
+    var lite = window.__fx === 'lite' || (window.__fx === 'auto' && !!window.BomeraNative) || /[?&]lite=1/.test(location.search);
+    document.documentElement.classList.toggle('lite', lite); window.__lite = lite;
+  };
+  window.__applyFx();
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 :root{--bg:#1b1d1d;--card:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--white:#FBFBFB;--soft:#E5E5E5;--mute:#9aa0a0;--accent:#906538;--accent2:#c9955c;--live:#ff4d4d}
@@ -148,9 +159,16 @@ background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100
 #bday.on{display:flex}
 #bday p{white-space:nowrap;font-size:5.4vh;font-weight:600;color:var(--white);padding-left:100%;animation:slide var(--d,20s) linear infinite}
 @keyframes slide{to{transform:translateX(-100%)}}
+video{transition:opacity .2s linear}
+html.lite #bgc{filter:none;transform:none}
+html.lite #tview{-webkit-mask-image:none;mask-image:none}
+html.lite #qr-right .lbl,html.lite #qr-left .lbl,html.lite #tchip,html.lite #tidx,html.lite #tlegend{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(20,22,24,.93)}
+html.lite .tbox .lg img,html.lite .trw .tn img{filter:none}
+html.lite #traffic iframe{filter:none}
+html.lite #traffic::after{box-shadow:none}
 </style></head><body>
 <div id="app">
-  <div id="stage"><div id="frame"><div id="bgw"><canvas id="bgc"></canvas></div><video id="v" autoplay muted playsinline></video><img id="img" alt=""><div id="qr-left" class="qrc"></div><div id="qr-right" class="qrc"></div></div></div>
+  <div id="stage"><div id="frame"><div id="bgw"><canvas id="bgc"></canvas></div><video id="v" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><video id="v2" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><img id="img" alt=""><div id="qr-left" class="qrc"></div><div id="qr-right" class="qrc"></div></div></div>
   <div id="side">
     <div id="logo"></div>
     <div id="matches"><div id="goal"></div><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tchip">Canlı Trafik</div><div id="tidx"></div><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
@@ -161,9 +179,21 @@ background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100
 </div>
 <div id="bday"><p id="btxt"></p></div>
 <script>
-const v = document.getElementById('v'), img = document.getElementById('img');
-let videos = [], idx = 0, current = null, imageSeconds = 10, timer;
+const els = [document.getElementById('v'), document.getElementById('v2')], img = document.getElementById('img');
+let ci = 0; const curV = () => els[ci], idleV = () => els[1 - ci];
+let videos = [], idx = 0, current = null, imageSeconds = 10, timer, prepared = { id: null };
+const bgc = document.getElementById('bgc'), bctx = bgc.getContext('2d');
 function next() { clearTimeout(timer); idx++; play(); }
+function showEl(el) { els.forEach(e => { e.style.opacity = e === el ? '1' : '0'; e.style.zIndex = e === el ? '2' : '1'; }); }
+// sıradaki videoyu boştaki öğeye önceden yükle: geçişte boşluk ve "play" simgesi çıkmaz
+function prepNext() {
+  if (videos.length < 2) { prepared = { id: null }; return; }
+  const n = videos[(idx + 1) % videos.length], el = idleV();
+  if (n.type !== 'video') { prepared = { id: null }; return; }
+  if (prepared.id === n.id && el.dataset.url === n.url) return;
+  el.dataset.url = n.url; el.loop = false; el.src = n.url; el.load();
+  prepared = { id: n.id };
+}
 function play() {
   clearTimeout(timer);
   if (!videos.length) return;
@@ -171,15 +201,25 @@ function play() {
   const it = videos[idx];
   current = it.id;
   if (it.type === 'image') {
-    v.pause(); v.style.display = 'none'; img.style.display = 'block'; img.src = it.url;
+    els.forEach(e => { e.pause(); e.style.opacity = '0'; });
+    img.style.display = 'block'; img.src = it.url;
     timer = setTimeout(next, imageSeconds * 1000);
+    setTimeout(prepNext, 500);
   } else {
-    img.style.display = 'none'; v.style.display = 'block'; v.src = it.url;
-    v.loop = videos.length === 1;
-    v.play().catch(() => {});
+    img.style.display = 'none';
+    if (window.__lite) bctx.clearRect(0, 0, bgc.width, bgc.height); // hafif modda videonun arkasına bulanık kopya çizilmez
+    let el, ready = false;
+    if (prepared.id === it.id && idleV().dataset.url === it.url) { ci = 1 - ci; el = curV(); ready = el.readyState >= 2; }
+    else { el = curV(); el.dataset.url = it.url; el.src = it.url; }
+    el.loop = videos.length === 1;
+    const old = idleV();
+    const reveal = () => { showEl(el); if (old !== el) old.pause(); };
+    if (ready) reveal(); else el.addEventListener('playing', reveal, { once: true });
+    const pr = el.play(); if (pr && pr.catch) pr.catch(() => {});
+    prepared = { id: null };
+    setTimeout(prepNext, 1500);
   }
 }
-const bgc = document.getElementById('bgc'), bctx = bgc.getContext('2d');
 function sizeBg() { const f = document.getElementById('frame'); bgc.width = 64; bgc.height = Math.max(8, Math.round(64 * f.clientHeight / Math.max(1, f.clientWidth))); }
 function drawBg(src, iw, ih) {
   if (!iw || !ih) return;
@@ -189,9 +229,16 @@ function drawBg(src, iw, ih) {
 sizeBg();
 addEventListener('resize', () => { sizeBg(); if (img.style.display === 'block') drawBg(img, img.naturalWidth, img.naturalHeight); });
 img.addEventListener('load', () => drawBg(img, img.naturalWidth, img.naturalHeight));
-setInterval(() => { if (v.style.display !== 'none' && !v.paused && v.readyState >= 2) drawBg(v, v.videoWidth, v.videoHeight); }, 250);
-v.addEventListener('ended', next);
-v.addEventListener('error', () => { clearTimeout(timer); timer = setTimeout(next, 2000); });
+// videonun arkasındaki bulanık dolgu: yalnızca tam modda (hafif modda görüntü kartına geri okuma yapılmaz)
+setInterval(() => {
+  if (window.__lite) return;
+  const c = curV();
+  if (img.style.display === 'none' && c.style.opacity !== '0' && !c.paused && c.readyState >= 2) drawBg(c, c.videoWidth, c.videoHeight);
+}, 250);
+els.forEach(e => {
+  e.addEventListener('ended', () => { if (e === curV()) next(); });
+  e.addEventListener('error', () => { if (e === curV()) { clearTimeout(timer); timer = setTimeout(next, 2000); } });
+});
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let PER_PAGE = 5; const PAGE_MS = 9000, TRAFFIC_MS = 14000;
@@ -268,8 +315,14 @@ function loadTraffic() {
   const f = document.querySelector('#traffic iframe');
   f.src = TRAFFIC_URL; trafficLoaded = Date.now();
 }
-loadTraffic();
-setInterval(() => { if (pages[page] && pages[page].type !== 'traffic') loadTraffic(); }, 4 * 60 * 1000);
+let mapOn = false;
+function ensureMap(on) { // hafif modda harita yalnızca gösterilmeden hemen önce yüklenir, sonra boşaltılır
+  const f = document.querySelector('#traffic iframe');
+  if (on && !mapOn) { f.src = TRAFFIC_URL; mapOn = true; trafficLoaded = Date.now(); }
+  else if (!on && mapOn) { f.src = 'about:blank'; mapOn = false; }
+}
+if (!window.__lite) loadTraffic();
+setInterval(() => { if (!window.__lite && pages[page] && pages[page].type !== 'traffic') loadTraffic(); }, 4 * 60 * 1000);
 function render() {
   const list = document.getElementById('list'), tr = document.getElementById('traffic'), dots = document.getElementById('dots');
   if (!window.fitted) { fit(); window.fitted = true; }
@@ -283,6 +336,7 @@ function render() {
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
   else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
+  if (window.__lite) ensureMap(pg.type === 'traffic' || (pages[(page + 1) % pages.length] || {}).type === 'traffic');
   dots.innerHTML = pages.length > 6 ? `<span class="cnt">${page + 1} / ${pages.length}</span>` : pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
 }
 function tick() {
@@ -377,8 +431,9 @@ function setTicker(list) {
 function setState(s) {
   const ids = s.videos.map(x => x.id).join();
   const changed = ids !== videos.map(x => x.id).join();
+  if ((s.fxMode || 'auto') !== window.__fx) { window.__fx = s.fxMode || 'auto'; window.__applyFx(); if (window.__lite) ensureMap(false); }
   videos = s.videos; imageSeconds = s.imageSeconds || 10;
-  if (changed) { const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
+  if (changed) { prepared = { id: null }; const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
   if (current === null && videos.length) play();
   setMatches(s.matches, s.standings, s.showStandings);
   setTicker(s.matches);

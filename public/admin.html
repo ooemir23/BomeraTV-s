@@ -140,6 +140,10 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
       <button class="btn ghost" onclick="testDirect()">Doğrudan İBB testi</button></div>
       <p id="tres" class="hint" style="margin:12px 0 0"></p>
 </div>
+    <div class="card"><h2>Performans</h2>
+      <p class="hint">TV ekranı takılıyorsa efektleri azaltın. <b>Otomatik</b>: Android uygulamasında (APK) hafif, bilgisayar tarayıcısında tam görünüm. <b>Hafif</b>: her yerde ağır efektler kapalı (bulanıklık, cam efekti, koyu harita, videonun arkasındaki bulanık dolgu). <b>Tam</b>: her yerde tüm efektler açık.</p>
+      <div class="row"><div class="fld" style="max-width:320px"><label class="f">Görsel efektler</label>
+        <select id="fxmode" onchange="api('PUT','/options',{fxMode:this.value},'Efekt modu kaydedildi')"><option value="auto">Otomatik (APK'da hafif)</option><option value="lite">Hafif (her yerde)</option><option value="full">Tam (her yerde)</option></select></div></div></div>
     <div class="card"><h2>Hızlı İşlemler</h2><p class="hint">Tüm TV'lerde anında test gösterimi başlatır.</p>
       <div class="row">
         <button class="btn" onclick="post('/goal/test','Gol animasyonu tüm TV\'lere gönderildi')">⚽ Gol animasyonunu test et</button>
@@ -491,7 +495,7 @@ function counts() {
 async function load() {
   const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
-  $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
+  $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
   renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
