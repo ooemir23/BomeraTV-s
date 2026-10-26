@@ -120,7 +120,7 @@ async function refreshMatches() {
   const todayStart = Date.parse(today + 'T00:00:00Z') - offsetMs;
   const MATCH_MS = 2 * 3600 * 1000; // bir maçın yaklaşık süresi (devre arası dahil)
   // varsayılan skor tablosu (gece yarısını geçen canlı maçlar dahil) + bugün + yarın
-  const queries = ['', ...[0, 1].map(i => '?dates=' + ymd(new Date(Date.now() + i * 86400000)).replace(/-/g, ''))];
+  const queries = ['', '?dates=' + today.replace(/-/g, '')];
   for (const q of queries) {
     await Promise.all(enabledLeagues().map(async ([code, label]) => {
       try {
@@ -131,7 +131,7 @@ async function refreshMatches() {
           const when = new Date(e.date);
           // biten maç: bugün başladıysa ya da gece yarısını geçerek bittiyse göster; dünün eski sonuçlarını gösterme
           if (st === 'post' && when.getTime() < todayStart && when.getTime() + MATCH_MS <= todayStart) continue;
-          if (st === 'pre' && ymd(when) > ymd(new Date(Date.now() + 86400000))) continue;
+          if (st === 'pre' && ymd(when) !== today) continue; // yalnızca günlük: yarının maçları gösterilmez
           const c = e.competitions[0].competitors;
           const home = c.find(x => x.homeAway === 'home'), away = c.find(x => x.homeAway === 'away');
           const d = ymd(when);
