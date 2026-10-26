@@ -16,54 +16,16 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', tomtomKey: '' };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '' };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
-let traffic = null;
-// TomTom Flow Segment Data ile ana arterlerdeki ortalama yavaşlama (%) — İBB endeksi değil, kendi hesabımız.
-const TOMTOM_BASE = process.env.TOMTOM_BASE || 'https://api.tomtom.com';
-const TT_POINTS = [ // [bölge, enlem, boylam, açıklama]
-  ['eu', 41.0451, 29.0340, '15 Temmuz Şehitler Köprüsü'], ['as', 41.0912, 29.0624, 'FSM Köprüsü'],
-  ['eu', 41.0670, 29.0130, 'Zincirlikuyu / Büyükdere Cd.'], ['eu', 41.0480, 29.0060, 'Barbaros Bulvarı'],
-  ['eu', 40.9946, 28.8470, 'E-5 Yenibosna'], ['eu', 40.9875, 28.7200, 'E-5 Avcılar'], ['eu', 41.0560, 28.8260, 'TEM Mahmutbey'],
-  ['eu', 41.0075, 28.9150, 'E-5 Cevizlibağ'], ['eu', 41.0300, 28.9460, 'Haliç Köprüsü'],
-  ['as', 40.9760, 29.0950, 'D-100 Kozyatağı'], ['as', 40.9020, 29.1950, 'D-100 Kartal'], ['as', 41.0260, 29.1450, 'TEM Ümraniye'],
-  ['as', 41.0210, 29.0400, 'Altunizade'], ['as', 40.9900, 29.0230, 'Kadıköy sahil'],
-];
-const ttStats = { day: '', requests: 0, lastError: '', lastOk: null };
-async function sampleTomTom(key) {
-  const day = ymd(new Date());
-  if (ttStats.day !== day) { ttStats.day = day; ttStats.requests = 0; }
-  const results = await Promise.all(TT_POINTS.map(async ([zone, lat, lon, name]) => {
-    try {
-      ttStats.requests++;
-      const r = await fetch(`${TOMTOM_BASE}/traffic/services/4/flowSegmentData/absolute/10/json?point=${lat},${lon}&unit=KMPH&key=${encodeURIComponent(key)}`);
-      const j = await r.json();
-      if (!r.ok) throw new Error((j.detailedError && j.detailedError.message) || j.error || ('HTTP ' + r.status));
-      const f = j.flowSegmentData;
-      if (!f || !f.freeFlowSpeed || f.currentSpeed == null) throw new Error('hız verisi yok');
-      return { zone, name, slow: Math.max(0, Math.min(100, Math.round((1 - f.currentSpeed / f.freeFlowSpeed) * 100))) };
-    } catch (e) { return { zone, name, error: e.message }; }
-  }));
-  const ok = results.filter(r => r.slow != null), bad = results.filter(r => r.error);
-  const avg = list => list.length ? Math.round(list.reduce((s, r) => s + r.slow, 0) / list.length) : null;
-  if (ok.length < 5) return { ok: false, used: ok.length, total: results.length, error: (bad[0] && bad[0].error) || 'yeterli nokta alınamadı', bad };
-  const eu = avg(ok.filter(r => r.zone === 'eu')), as = avg(ok.filter(r => r.zone === 'as'));
-  return { ok: true, used: ok.length, total: results.length, data: { all: avg(ok), europe: eu ?? avg(ok), asia: as ?? avg(ok), source: 'tomtom', updated: new Date().toISOString() }, bad };
+let traffic = null; // İBB trafik endeksi: Türkiye'den bağlanan tarayıcıların Worker üzerinden aldığı, Worker'ın imzaladığı değerler
+const crypto = require('crypto');
+function trafficSecret() {
+  if (!db.trafficSecret) { db.trafficSecret = crypto.randomBytes(32).toString('hex'); save(); }
+  return db.trafficSecret;
 }
-async function refreshTraffic() {
-  const key = db.tomtomKey;
-  if (!key) { traffic = null; return; }
-  try {
-    const r = await sampleTomTom(key);
-    if (r.ok) { traffic = r.data; ttStats.lastOk = r.data.updated; ttStats.lastError = ''; }
-    else { ttStats.lastError = r.error; console.error('TomTom trafik alınamadı:', r.error); }
-    broadcast({ type: 'state', state: publicState() });
-  } catch (e) { ttStats.lastError = e.message; console.error('TomTom trafik hatası:', e.message); }
-}
-setTimeout(refreshTraffic, 3000);
-setInterval(refreshTraffic, 10 * 60 * 1000);
 
 let weather = null;
 async function refreshWeather() {
@@ -237,6 +199,18 @@ const publicState = () => ({
   traffic,
 });
 app.get('/api/state', (_, res) => res.json(publicState()));
+app.post('/api/traffic/report', (req, res) => {
+  const { all, asia, europe, ts, sig } = req.body || {};
+  if (![all, asia, europe, ts].every(n => typeof n === 'number' && isFinite(n)) || typeof sig !== 'string') return res.status(400).json({ error: 'eksik veri' });
+  const exp = crypto.createHmac('sha256', trafficSecret()).update(`${all}|${asia}|${europe}|${ts}`).digest('hex');
+  if (sig.length !== exp.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(exp))) return res.status(403).json({ error: 'imza geçersiz' });
+  if (Math.abs(Date.now() - ts) > 10 * 60 * 1000) return res.status(400).json({ error: 'veri çok eski' });
+  if (!traffic || ts > traffic.at) {
+    traffic = { all, asia, europe, source: 'ibb', at: ts, updated: new Date(ts).toISOString() };
+    broadcast({ type: 'state', state: publicState() });
+  }
+  res.json({ ok: true });
+});
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -256,22 +230,14 @@ app.get('/api/admin/leagues', (_, res) => res.json({
 }));
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
-  if (typeof req.body.tomtomKey === 'string') { db.tomtomKey = req.body.tomtomKey.trim().slice(0, 80); traffic = null; }
   if (typeof req.body.trafficApi === 'string') {
     const u = req.body.trafficApi.trim();
     if (u && !/^https:\/\/[^\s]+$/.test(u)) return res.status(400).json({ error: 'Adres https:// ile başlamalı' });
     db.trafficApi = u;
   }
   changed(); res.json({ ok: true });
-  if (typeof req.body.tomtomKey === 'string') refreshTraffic();
 });
-app.post('/api/admin/traffic/test', async (req, res) => {
-  const key = ((req.body && req.body.key) || db.tomtomKey || '').trim();
-  if (!key) return res.status(400).json({ error: 'Önce TomTom anahtarını girin' });
-  try { const r = await sampleTomTom(key); res.json({ ...r, requestsToday: ttStats.requests }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.get('/api/admin/traffic/status', (_, res) => res.json({ hasKey: !!db.tomtomKey, ...ttStats, current: traffic }));
+app.get('/api/admin/traffic/status', (_, res) => res.json({ current: traffic, secret: trafficSecret() }));
 app.put('/api/admin/channels/league', (req, res) => {
   const { league, channel } = req.body;
   if (!league) return res.status(400).json({ error: 'lig gerekli' });

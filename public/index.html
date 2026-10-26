@@ -354,7 +354,7 @@ function setState(s) {
   setRates(s.rates);
   if (s.weather) setWeather(s.weather);
   if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; dbg(['trafficApi: YOK (sunucu durumunda adres boş)']); }
-  serverTraffic = s.traffic || null;
+  serverTraffic = s.traffic ? { ...s.traffic, at: s.traffic.at || Date.parse(s.traffic.updated) } : null;
   applyServerTraffic();
   setReviews(s.reviews);
 }
@@ -365,17 +365,17 @@ function setTraffic(t) {
   if (!t) { el.classList.remove('on'); return; }
   const sub = (name, v) => `<span>${name}<i style="--c:${tcol(v)}">%${v}</i></span>`;
   el.style.setProperty('--tc', tcol(t.all));
-  const src = t.source === 'tomtom' ? '<span class="ago">TomTom</span>' : '';
+  const src = '';
   const old = t.at && Date.now() - t.at > 5 * 60 * 1000 ? `<span class="ago">${new Date(t.at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })} itibarıyla</span>` : '';
   el.innerHTML = `<b>%${t.all}</b>${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}${src}${old}`;
   el.classList.add('on');
 }
 let trafficUrl = '', trafficTimer, trafficOkAt = 0, serverTraffic = null;
+let ownTraffic = null; // bu ekranın Worker'dan kendisinin aldığı son değer
 function applyServerTraffic() {
-  // İBB (Worker) verisi tazeyse o kalır; değilse sunucunun TomTom hesabı gösterilir
-  if (Date.now() - trafficOkAt < 10 * 60 * 1000) return;
-  if (serverTraffic) setTraffic({ ...serverTraffic, at: Date.parse(serverTraffic.updated) || Date.now() });
-  else if (!trafficUrl) setTraffic(null);
+  // bu ekranın aldığı ya da sunucunun (başka bir ekranın bildirdiği) değerden hangisi daha tazeyse onu göster
+  const pick = [ownTraffic, serverTraffic].filter(Boolean).sort((x, y) => y.at - x.at)[0];
+  if (pick && Date.now() - pick.at < TRAFFIC_STALE_MS) setTraffic(pick); else setTraffic(null);
 }
 const DEBUG = /[?&]debug=1/.test(location.search);
 let tdbg;
@@ -395,12 +395,14 @@ async function fetchTraffic() {
     const j = JSON.parse(text);
     if (typeof j.all === 'number') {
       ok = true; trafficOkAt = Date.now();
-      const d = { all: j.all, asia: j.asia, europe: j.europe, at: trafficOkAt };
+      const d = { all: j.all, asia: j.asia, europe: j.europe, at: j.ts || trafficOkAt };
       try { localStorage.setItem('trafficLast', JSON.stringify(d)); } catch (e) {}
-      setTraffic(d);
+      ownTraffic = d;
+      if (j.sig) fetch('/api/traffic/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: j.all, asia: j.asia, europe: j.europe, ts: j.ts, sig: j.sig }) }).catch(() => {});
+      applyServerTraffic();
     }
   } catch (e) { info = (info ? info + ' · ' : '') + 'HATA: ' + e.message; }
-  if (!ok) { if (Date.now() - trafficOkAt > 10 * 60 * 1000 && serverTraffic) applyServerTraffic(); else if (Date.now() - trafficOkAt > TRAFFIC_STALE_MS) setTraffic(null); } // eski yüzdeyi 45 dk sonra gizle
+  if (!ok) applyServerTraffic(); // başka ekranın bildirdiği değer varsa onu, yoksa 45 dk sonra gizle
   dbg(['trafficApi: ' + trafficUrl, 'son deneme: ' + t0, 'sonuç: ' + info, 'bar açık: ' + document.getElementById('tidx').classList.contains('on'), 'sonraki deneme: ' + (ok ? '2 dk' : '30 sn') + ' sonra']);
   clearTimeout(trafficTimer);
   trafficTimer = setTimeout(fetchTraffic, ok ? TRAFFIC_OK_MS : TRAFFIC_RETRY_MS);
@@ -410,7 +412,7 @@ function pollTraffic(url) {
   trafficUrl = url; clearTimeout(trafficTimer);
   try { // yeniden açılışta son iyi değeri hemen göster
     const d = JSON.parse(localStorage.getItem('trafficLast') || 'null');
-    if (d && Date.now() - d.at < TRAFFIC_STALE_MS) { trafficOkAt = d.at; setTraffic(d); }
+    if (d && Date.now() - d.at < TRAFFIC_STALE_MS) { ownTraffic = d; applyServerTraffic(); }
   } catch (e) {}
   fetchTraffic();
 }

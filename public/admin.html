@@ -132,18 +132,12 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div class="card"><h2>Canlı Önizleme</h2><p class="hint">TV'de görünen ekranın küçültülmüş hâli. Değişiklikler burada da anında görünür.</p>
       <div id="pv"><iframe src="/" id="pvf"></iframe></div></div>
     <div class="card" style="grid-column:1/-1"><h2>Trafik Yüzdesi (isteğe bağlı)</h2>
-      <p class="hint">Haritanın üstünde İstanbul geneli, Avrupa ve Anadolu yakası trafik yoğunluğu yüzdesini gösterir. İBB verisine sunucu üzerinden erişilemediği için küçük bir Cloudflare Worker gerekir (kurulum adımları sohbette anlatıldı, kod: <code>tools/cloudflare-traffic-worker.js</code>). Worker adresini buraya yapıştırın; boş bırakırsanız yüzde gösterilmez.</p>
+      <p class="hint">Haritanın üstünde İstanbul geneli, Avrupa ve Anadolu yakası trafik yoğunluğu yüzdesini gösterir. İBB verisine sunucu üzerinden erişilemediği için küçük bir Cloudflare Worker gerekir (kod: <code>tools/cloudflare-traffic-worker.js</code>). Veri İBB'den gelir; Worker'ın İstanbul sunucusu üzerinden çalıştığı anlarda alınır ve imzalanarak tüm ekranlara dağıtılır. Boş bırakırsanız yüzde gösterilmez.</p>
       <div class="row"><div class="fld"><label class="f">Worker adresi</label><input type="text" id="tapi" placeholder="https://trafik.kullanici.workers.dev"></div>
       <button class="btn" onclick="api('PUT','/options',{trafficApi:$('tapi').value},'Trafik adresi kaydedildi')">Kaydet</button>
       <button class="btn ghost" onclick="testTraffic()">Test et</button></div>
       <p id="tres" class="hint" style="margin:12px 0 0"></p>
-      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
-      <h2 style="font-size:15px">Alternatif: TomTom ile hesaplanan yüzde</h2>
-      <p class="hint">Cloudflare yolu çalışmazsa kullanılır (ya da Cloudflare verisi gelmediğinde yedek olur). TomTom'un ücretsiz API anahtarıyla İstanbul'un ana yollarındaki (köprüler, E-5, TEM, D-100 gibi) ortalama yavaşlama yüzdesini hesaplar. <b>Bu İBB'nin resmi endeksi değildir</b>, ekranda "ana yollarda yavaşlama" diye belirtilir. Anahtar için developer.tomtom.com'da ücretsiz kayıt olun.</p>
-      <div class="row"><div class="fld"><label class="f">TomTom API anahtarı</label><input type="password" id="ttkey" placeholder="anahtarı buraya yapıştırın" autocomplete="off"></div>
-      <button class="btn" onclick="api('PUT','/options',{tomtomKey:$('ttkey').value},'TomTom anahtarı kaydedildi')">Kaydet</button>
-      <button class="btn ghost" onclick="testTomTom()">Test et</button></div>
-      <p id="ttres" class="hint" style="margin:12px 0 0"></p></div>
+</div>
     <div class="card"><h2>Hızlı İşlemler</h2><p class="hint">Tüm TV'lerde anında test gösterimi başlatır.</p>
       <div class="row">
         <button class="btn" onclick="post('/goal/test','Gol animasyonu tüm TV\'lere gönderildi')">⚽ Gol animasyonunu test et</button>
@@ -359,17 +353,6 @@ async function addMatch() {
   if (ok) ['mh', 'ma', 'mt', 'ml'].forEach(i => $(i).value = '');
 }
 
-async function testTomTom() {
-  const out = $('ttres'); out.textContent = 'Deneniyor…';
-  try {
-    const r = await fetch('/api/admin/traffic/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: $('ttkey').value.trim() }) });
-    const j = await r.json();
-    if (!r.ok) { out.textContent = '❌ ' + (j.error || r.status); return; }
-    out.innerHTML = j.ok
-      ? `✅ Çalışıyor: İstanbul %${j.data.all}, Avrupa %${j.data.europe}, Anadolu %${j.data.asia} (${j.used}/${j.total} nokta okundu). Bugün ${j.requestsToday} istek yapıldı. Her 10 dakikada bir yenilenir.`
-      : `❌ Okunamadı (${j.used}/${j.total} nokta). Hata: ${esc(j.error)}`;
-  } catch (e) { out.textContent = '❌ ' + e.message; }
-}
 async function testTraffic() {
   const url = $('tapi').value.trim(), out = $('tres');
   if (!url) { out.textContent = 'Önce bir adres girin.'; return; }
@@ -437,7 +420,7 @@ function counts() {
 async function load() {
   const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
-  $('tapi').value = db.trafficApi || ''; $('ttkey').value = db.tomtomKey || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
+  $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
   renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
