@@ -353,7 +353,7 @@ function setState(s) {
   setTicker(s.matches);
   setRates(s.rates);
   if (s.weather) setWeather(s.weather);
-  if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; dbg(['trafficApi: YOK (sunucu durumunda adres boş)']); }
+  if (window.BomeraNative) { /* APK içinde: İBB verisini uygulama doğrudan verir */ } else if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; dbg(['trafficApi: YOK (sunucu durumunda adres boş)']); }
   serverTraffic = s.traffic ? { ...s.traffic, at: s.traffic.at || Date.parse(s.traffic.updated) } : null;
   applyServerTraffic();
   setReviews(s.reviews);
@@ -371,7 +371,16 @@ function setTraffic(t) {
   el.classList.add('on');
 }
 let trafficUrl = '', trafficTimer, trafficOkAt = 0, serverTraffic = null;
-let ownTraffic = null; // bu ekranın Worker'dan kendisinin aldığı son değer
+let ownTraffic = null; // bu ekranın Worker'dan ya da APK'dan kendisinin aldığı son değer
+// Android APK, İBB'den aldığı değeri buradan verir (tarayıcı engeli olmadan, cihaz Türkiye'de olduğu için)
+window.__nativeTraffic = d => {
+  if (!d || typeof d.all !== 'number') return;
+  ownTraffic = { all: d.all, asia: d.asia, europe: d.europe, at: d.ts || Date.now() };
+  trafficOkAt = ownTraffic.at;
+  try { localStorage.setItem('trafficLast', JSON.stringify(ownTraffic)); } catch (e) {}
+  applyServerTraffic();
+  dbg(['kaynak: APK (doğrudan İBB)', 'son değer: ' + JSON.stringify(d)]);
+};
 function applyServerTraffic() {
   // bu ekranın aldığı ya da sunucunun (başka bir ekranın bildirdiği) değerden hangisi daha tazeyse onu göster
   const pick = [ownTraffic, serverTraffic].filter(Boolean).sort((x, y) => y.at - x.at)[0];
