@@ -195,7 +195,7 @@ const publicState = () => ({
   showStandings: db.showStandings !== false,
   trafficApi: db.trafficApi || '',
   showQr: db.showQr !== false,
-  qrs: (db.qrs || []).map(({ id, label, svg }) => ({ id, label, svg })),
+  qrs: (db.qrs || []).map(({ id, label, svg, side }) => ({ id, label, svg, side: side === 'left' ? 'left' : 'right' })),
   standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code)])),
   rates,
   weather,
@@ -251,9 +251,15 @@ app.post('/api/admin/qrs', async (req, res) => {
     const svg = await QRCode.toString(text, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#14100c', light: '#ffffff' } });
     db.qrs = db.qrs || [];
     if (db.qrs.length >= 6) throw new Error('En fazla 6 QR kod eklenebilir');
-    db.qrs.push({ id: uid(), label, kind: req.body.kind === 'wifi' ? 'wifi' : 'link', text, svg });
+    db.qrs.push({ id: uid(), label, kind: req.body.kind === 'wifi' ? 'wifi' : 'link', text, svg, side: req.body.side === 'left' ? 'left' : 'right' });
     changed(); res.json({ ok: true });
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.patch('/api/admin/qrs/:id', (req, res) => {
+  const q = (db.qrs || []).find(x => x.id === req.params.id);
+  if (!q) return res.status(404).json({ error: 'bulunamadı' });
+  if (['left', 'right'].includes(req.body.side)) q.side = req.body.side;
+  changed(); res.json({ ok: true });
 });
 app.delete('/api/admin/qrs/:id', (req, res) => {
   db.qrs = (db.qrs || []).filter(x => x.id !== req.params.id);

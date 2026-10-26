@@ -212,7 +212,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
 
 <!-- QR KOD -->
 <section id="sec-qr">
-  <h1>QR Kod</h1><p class="sub">Videonun sağ alt köşesinde küçük bir QR kod gösterilir. Birden fazla kod eklerseniz sırayla döner (12 saniyede bir).</p>
+  <h1>QR Kod</h1><p class="sub">Videonun alt köşelerinde küçük QR kodlar gösterilir. Her kod için köşe seçebilirsiniz: sol altta bir, sağ altta bir kod aynı anda görünür. Aynı köşedeki kodlar sırayla döner (12 saniyede bir).</p>
   <div class="card">
     <div class="item" style="margin-bottom:18px"><label class="sw"><input type="checkbox" id="showqr" onchange="api('PUT','/options',{showQr:this.checked},this.checked?'QR köşesi açıldı':'QR köşesi kapatıldı')"><i></i></label>
       <div class="body"><b>QR köşesini ekranda göster</b></div></div>
@@ -220,6 +220,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <p class="hint">Müşteri telefonun kamerasını tutunca açılır. Örnekler: menü bağlantısı, Google'da değerlendirme sayfası, Instagram hesabınız, Wi-Fi bağlantısı. En fazla 6 kod.</p>
     <div class="row" style="margin-bottom:12px">
       <div class="fld" style="max-width:200px"><label class="f">Tür</label><select id="qkind" onchange="qrKind()"><option value="link">Bağlantı (link)</option><option value="wifi">Wi-Fi</option></select></div>
+      <div class="fld" style="max-width:200px"><label class="f">Köşe</label><select id="qside"><option value="right">Sağ alt</option><option value="left">Sol alt</option></select></div>
       <div class="fld"><label class="f">Ekranda yazacak etiket</label><input type="text" id="qlabel" maxlength="40" placeholder='örn. Menü için okutun'></div>
     </div>
     <div id="qlink" class="row"><div class="fld"><label class="f">Bağlantı</label><input type="text" id="qtext" placeholder="https://bomeralounge.com/menu"></div></div>
@@ -443,12 +444,13 @@ function renderQr() {
   const list = db.qrs || [];
   $('qr-list').innerHTML = list.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px">' + list.map(q => `<div class="tile"><div style="background:#fff;padding:10px;display:flex;justify-content:center"><div style="width:130px;height:130px">${q.svg}</div></div>
     <div class="meta"><div class="nm" title="${esc(q.text)}"><b>${esc(q.label)}</b></div><div class="nm" style="color:var(--mute);font-size:12px">${q.kind === 'wifi' ? 'Wi-Fi' : esc(q.text)}</div>
+    <select style="margin:6px 0" onchange="api('PATCH','/qrs/${q.id}',{side:this.value},'Köşe değiştirildi')"><option value="right" ${q.side !== 'left' ? 'selected' : ''}>Sağ alt köşe</option><option value="left" ${q.side === 'left' ? 'selected' : ''}>Sol alt köşe</option></select>
     <div class="act"><button class="btn danger sm" onclick="del('/qrs/${q.id}','${esc(q.label).replace(/'/g, '')}')">Sil</button></div></div></div>`).join('') + '</div>'
     : '<div class="empty">Henüz QR kod eklenmedi. Eklenmezse ekranda köşe görünmez.</div>';
 }
 async function addQr() {
   const kind = $('qkind').value;
-  const body = { kind, label: $('qlabel').value.trim(), text: $('qtext').value.trim(), ssid: $('qssid').value.trim(), password: $('qpass').value, security: $('qsec').value };
+  const body = { kind, side: $('qside').value, label: $('qlabel').value.trim(), text: $('qtext').value.trim(), ssid: $('qssid').value.trim(), password: $('qpass').value, security: $('qsec').value };
   if (await api('POST', '/qrs', body, 'QR kod eklendi')) ['qlabel', 'qtext', 'qssid', 'qpass'].forEach(i => $(i).value = '');
 }
 
