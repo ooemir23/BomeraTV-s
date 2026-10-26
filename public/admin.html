@@ -135,7 +135,8 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
       <p class="hint">Haritanın üstünde İstanbul geneli, Avrupa ve Anadolu yakası trafik yoğunluğu yüzdesini gösterir. İBB verisine sunucu üzerinden erişilemediği için küçük bir Cloudflare Worker gerekir (kod: <code>tools/cloudflare-traffic-worker.js</code>). Veri İBB'den gelir; Worker'ın İstanbul sunucusu üzerinden çalıştığı anlarda alınır ve imzalanarak tüm ekranlara dağıtılır. Boş bırakırsanız yüzde gösterilmez.</p>
       <div class="row"><div class="fld"><label class="f">Worker adresi</label><input type="text" id="tapi" placeholder="https://trafik.kullanici.workers.dev"></div>
       <button class="btn" onclick="api('PUT','/options',{trafficApi:$('tapi').value},'Trafik adresi kaydedildi')">Kaydet</button>
-      <button class="btn ghost" onclick="testTraffic()">Test et</button></div>
+      <button class="btn ghost" onclick="testTraffic()">Test et</button>
+      <button class="btn ghost" onclick="testDirect()">Doğrudan İBB testi</button></div>
       <p id="tres" class="hint" style="margin:12px 0 0"></p>
 </div>
     <div class="card"><h2>Hızlı İşlemler</h2><p class="hint">Tüm TV'lerde anında test gösterimi başlatır.</p>
@@ -353,6 +354,32 @@ async function addMatch() {
   if (ok) ['mh', 'ma', 'mt', 'ml'].forEach(i => $(i).value = '');
 }
 
+// Tarayıcının İBB'ye doğrudan (Worker olmadan) erişip erişemediğini dener: 1) normal istek (CORS), 2) JSONP
+async function testDirect() {
+  const out = $('tres'), SRC = 'https://api.ibb.gov.tr/tkmservices/api/TrafficData/v1/TrafficIndex_Sc1_Cont';
+  const lines = []; const show = () => out.innerHTML = lines.join('<br>');
+  lines.push('Doğrudan İBB testi başladı (en fazla ~20 sn)…'); show();
+  // 1) CORS ile normal istek
+  try {
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(SRC, { signal: ctrl.signal, cache: 'no-store' }); clearTimeout(t);
+    const txt = await r.text();
+    lines.push(`✅ Normal istek ÇALIŞTI (HTTP ${r.status}): ${esc(txt.slice(0, 80))}`);
+  } catch (e) { lines.push('❌ Normal istek: ' + esc(e.name === 'AbortError' ? 'zaman aşımı (İBB yanıt vermedi)' : e.message + ' (büyük ihtimalle CORS engeli — İBB yanıt verdi ama tarayıcı okumaya izin vermedi)')); }
+  show();
+  // 2) JSONP (callback parametresi)
+  const res = await new Promise(resolve => {
+    const cb = '__ibb' + Date.now(); let done = false;
+    window[cb] = d => { done = true; resolve('✅ JSONP ÇALIŞTI: ' + esc(JSON.stringify(d).slice(0, 80))); };
+    const s = document.createElement('script');
+    s.src = SRC + '?callback=' + cb + '&_=' + Date.now();
+    s.onerror = () => { if (!done) resolve('❌ JSONP: betik yüklenemedi (erişim yok ya da engellendi)'); };
+    s.onload = () => setTimeout(() => { if (!done) resolve('❌ JSONP: İBB yanıt verdi ama JSONP desteklemiyor'); }, 300);
+    setTimeout(() => { if (!done) resolve('❌ JSONP: zaman aşımı'); }, 10000);
+    document.head.appendChild(s);
+  });
+  lines.push(res); show();
+}
 async function testTraffic() {
   const url = $('tapi').value.trim(), out = $('tres');
   if (!url) { out.textContent = 'Önce bir adres girin.'; return; }
