@@ -113,6 +113,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <button class="nav on" data-tab="home"><span class="ic">▦</span>Genel Bakış</button>
   <button class="nav" data-tab="media"><span class="ic">🎞</span>Medya<span class="badge" id="b-media">0</span></button>
   <button class="nav" data-tab="matches"><span class="ic">⚽</span>Maçlar<span class="badge" id="b-matches">0</span></button>
+  <button class="nav" data-tab="qr"><span class="ic">▣</span>QR Kod<span class="badge" id="b-qr">0</span></button>
   <button class="nav" data-tab="reviews"><span class="ic">★</span>Yorumlar<span class="badge" id="b-reviews">0</span></button>
   <button class="nav" data-tab="bday"><span class="ic">🎂</span>Doğum Günü<span class="badge" id="b-bday">0</span></button>
   <div id="sidefoot"><a href="/" target="_blank">TV ekranını aç ↗</a></div>
@@ -207,6 +208,29 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     </div>
     <div id="manual" style="margin-top:16px"></div>
   </div>
+</section>
+
+<!-- QR KOD -->
+<section id="sec-qr">
+  <h1>QR Kod</h1><p class="sub">Videonun sağ alt köşesinde küçük bir QR kod gösterilir. Birden fazla kod eklerseniz sırayla döner (12 saniyede bir).</p>
+  <div class="card">
+    <div class="item" style="margin-bottom:18px"><label class="sw"><input type="checkbox" id="showqr" onchange="api('PUT','/options',{showQr:this.checked},this.checked?'QR köşesi açıldı':'QR köşesi kapatıldı')"><i></i></label>
+      <div class="body"><b>QR köşesini ekranda göster</b></div></div>
+    <h2>Yeni QR Kod</h2>
+    <p class="hint">Müşteri telefonun kamerasını tutunca açılır. Örnekler: menü bağlantısı, Google'da değerlendirme sayfası, Instagram hesabınız, Wi-Fi bağlantısı. En fazla 6 kod.</p>
+    <div class="row" style="margin-bottom:12px">
+      <div class="fld" style="max-width:200px"><label class="f">Tür</label><select id="qkind" onchange="qrKind()"><option value="link">Bağlantı (link)</option><option value="wifi">Wi-Fi</option></select></div>
+      <div class="fld"><label class="f">Ekranda yazacak etiket</label><input type="text" id="qlabel" maxlength="40" placeholder='örn. Menü için okutun'></div>
+    </div>
+    <div id="qlink" class="row"><div class="fld"><label class="f">Bağlantı</label><input type="text" id="qtext" placeholder="https://bomeralounge.com/menu"></div></div>
+    <div id="qwifi" class="row" style="display:none">
+      <div class="fld"><label class="f">Ağ adı (SSID)</label><input type="text" id="qssid"></div>
+      <div class="fld"><label class="f">Şifre</label><input type="text" id="qpass"></div>
+      <div class="fld" style="max-width:160px"><label class="f">Güvenlik</label><select id="qsec"><option value="WPA">WPA/WPA2</option><option value="WEP">WEP</option><option value="nopass">Şifresiz</option></select></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" onclick="addQr()">QR kodu ekle</button></div>
+  </div>
+  <div class="card"><h2>Mevcut QR Kodlar</h2><div id="qr-list" style="margin-top:12px"></div></div>
 </section>
 
 <!-- YORUMLAR -->
@@ -412,6 +436,22 @@ function renderChannels() {
 const saveLeagueCh = el => api('PUT', '/channels/league', { league: el.dataset.league, channel: el.value }, 'Kanal kaydedildi');
 const saveMatchCh = el => api('PUT', '/channels/match', { key: el.dataset.key, channel: el.value }, 'Kanal kaydedildi');
 
+/* QR kodlar */
+function qrKind() { const w = $('qkind').value === 'wifi'; $('qlink').style.display = w ? 'none' : 'flex'; $('qwifi').style.display = w ? 'flex' : 'none'; }
+function renderQr() {
+  $('showqr').checked = db.showQr !== false;
+  const list = db.qrs || [];
+  $('qr-list').innerHTML = list.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px">' + list.map(q => `<div class="tile"><div style="background:#fff;padding:10px;display:flex;justify-content:center"><div style="width:130px;height:130px">${q.svg}</div></div>
+    <div class="meta"><div class="nm" title="${esc(q.text)}"><b>${esc(q.label)}</b></div><div class="nm" style="color:var(--mute);font-size:12px">${q.kind === 'wifi' ? 'Wi-Fi' : esc(q.text)}</div>
+    <div class="act"><button class="btn danger sm" onclick="del('/qrs/${q.id}','${esc(q.label).replace(/'/g, '')}')">Sil</button></div></div></div>`).join('') + '</div>'
+    : '<div class="empty">Henüz QR kod eklenmedi. Eklenmezse ekranda köşe görünmez.</div>';
+}
+async function addQr() {
+  const kind = $('qkind').value;
+  const body = { kind, label: $('qlabel').value.trim(), text: $('qtext').value.trim(), ssid: $('qssid').value.trim(), password: $('qpass').value, security: $('qsec').value };
+  if (await api('POST', '/qrs', body, 'QR kod eklendi')) ['qlabel', 'qtext', 'qssid', 'qpass'].forEach(i => $(i).value = '');
+}
+
 /* yorumlar */
 function renderReviews() {
   const list = db.reviews || [];
@@ -442,6 +482,7 @@ function counts() {
   const rev = (db.reviews || []).filter(r => r.rating >= 4).length;
   $('b-media').textContent = $('s-media').textContent = (db.videos || []).length;
   $('b-matches').textContent = $('s-leagues').textContent = L.enabled.length;
+  $('b-qr').textContent = (db.qrs || []).length;
   $('b-reviews').textContent = $('s-reviews').textContent = rev;
   $('b-bday').textContent = $('s-bday').textContent = sel;
 }
@@ -449,7 +490,7 @@ async function load() {
   const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
   $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
-  renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
+  renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
 </script></body></html>

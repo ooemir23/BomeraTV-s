@@ -16,12 +16,13 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '' };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
 let traffic = null; // İBB trafik endeksi: Türkiye'den bağlanan tarayıcıların Worker üzerinden aldığı, Worker'ın imzaladığı değerler
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 function trafficSecret() {
   if (!db.trafficSecret) { db.trafficSecret = crypto.randomBytes(32).toString('hex'); save(); }
   return db.trafficSecret;
@@ -193,6 +194,8 @@ const publicState = () => ({
   ].slice(0, 30).map(m => ({ ...m, channel: (db.channels || {})[`${m.league}|${m.home}|${m.away}`] || (db.leagueChannels || {})[m.league] || null })),
   showStandings: db.showStandings !== false,
   trafficApi: db.trafficApi || '',
+  showQr: db.showQr !== false,
+  qrs: (db.qrs || []).map(({ id, label, svg }) => ({ id, label, svg })),
   standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code)])),
   rates,
   weather,
@@ -228,8 +231,37 @@ app.get('/api/admin/leagues', (_, res) => res.json({
   catalog: CATALOG.map(([code, label, group]) => ({ code, label, group })),
   enabled: enabledLeagues().map(([code]) => code),
 }));
+function qrText(b) {
+  if (b.kind === 'wifi') {
+    if (!b.ssid) throw new Error('Ağ adı (SSID) gerekli');
+    const esc = v => String(v).replace(/([\\;,:"])/g, '\\$1');
+    const sec = ['WPA', 'WEP', 'nopass'].includes(b.security) ? b.security : 'WPA';
+    return `WIFI:T:${sec};S:${esc(b.ssid)};${sec === 'nopass' ? '' : 'P:' + esc(b.password || '') + ';'};`;
+  }
+  const t = String(b.text || '').trim();
+  if (!t) throw new Error('Link ya da metin gerekli');
+  return /^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(t) && !/^https?:\/\//i.test(t) ? 'https://' + t : t;
+}
+app.post('/api/admin/qrs', async (req, res) => {
+  try {
+    const label = String(req.body.label || '').trim().slice(0, 40);
+    if (!label) throw new Error('Etiket gerekli (örn. "Menü için okutun")');
+    const text = qrText(req.body);
+    if (text.length > 400) throw new Error('İçerik çok uzun');
+    const svg = await QRCode.toString(text, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#14100c', light: '#ffffff' } });
+    db.qrs = db.qrs || [];
+    if (db.qrs.length >= 6) throw new Error('En fazla 6 QR kod eklenebilir');
+    db.qrs.push({ id: uid(), label, kind: req.body.kind === 'wifi' ? 'wifi' : 'link', text, svg });
+    changed(); res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.delete('/api/admin/qrs/:id', (req, res) => {
+  db.qrs = (db.qrs || []).filter(x => x.id !== req.params.id);
+  changed(); res.json({ ok: true });
+});
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
+  if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
   if (typeof req.body.trafficApi === 'string') {
     const u = req.body.trafficApi.trim();
     if (u && !/^https:\/\/[^\s]+$/.test(u)) return res.status(400).json({ error: 'Adres https:// ile başlamalı' });
