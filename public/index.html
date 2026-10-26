@@ -352,7 +352,7 @@ function setState(s) {
   setTicker(s.matches);
   setRates(s.rates);
   if (s.weather) setWeather(s.weather);
-  if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; setTraffic(s.traffic); }
+  if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; setTraffic(s.traffic); dbg(['trafficApi: YOK (sunucu durumunda adres boş)']); }
   setReviews(s.reviews);
 }
 const tcol = v => v <= 20 ? '#3ecf4a' : v <= 40 ? '#e6c229' : v <= 60 ? '#f08a24' : '#ee3b2f';
@@ -366,11 +366,27 @@ function setTraffic(t) {
   el.classList.add('on');
 }
 let trafficUrl = '', trafficTimer, trafficOkAt = 0;
+const DEBUG = /[?&]debug=1/.test(location.search);
+let tdbg, trafficTries = 0;
+function dbg(lines) {
+  if (!DEBUG) return;
+  if (!tdbg) { tdbg = document.createElement('pre'); tdbg.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;max-width:60vw;margin:0;padding:8px 10px;background:rgba(0,0,0,.85);color:#9fe;font:12px/1.4 monospace;border:1px solid #444;border-radius:6px;white-space:pre-wrap;word-break:break-all'; document.body.appendChild(tdbg); }
+  tdbg.textContent = lines.join('\n');
+}
 async function fetchTraffic() {
+  const t0 = new Date().toLocaleTimeString('tr-TR');
+  let info = '';
   try {
-    const j = await (await fetch(trafficUrl, { cache: 'no-store' })).json();
-    if (typeof j.all === 'number') { trafficOkAt = Date.now(); setTraffic({ all: j.all, asia: j.asia, europe: j.europe }); }
-  } catch (e) { /* önceki değer kalır */ }
+    const r = await fetch(trafficUrl, { cache: 'no-store' });
+    const text = await r.text();
+    info = `HTTP ${r.status} · ${text.slice(0, 220)}`;
+    const j = JSON.parse(text);
+    if (typeof j.all === 'number') { trafficOkAt = Date.now(); trafficTries = 0; setTraffic({ all: j.all, asia: j.asia, europe: j.europe }); }
+    else if (!info.includes('hata')) info += ' · (all alanı yok)';
+  } catch (e) { info = (info ? info + ' · ' : '') + 'HATA: ' + e.message; }
+  dbg(['trafficApi: ' + trafficUrl, 'son deneme: ' + t0, 'sonuç: ' + info, 'bar açık: ' + document.getElementById('tidx').classList.contains('on'), 'deneme sayısı (art arda hata): ' + trafficTries]);
+  // başarısızsa 15 sn sonra yeniden dene (en fazla 4 kez), sonra normal döngü
+  if (Date.now() - trafficOkAt > 60 * 1000 && trafficTries < 4) { trafficTries++; setTimeout(fetchTraffic, 15000); }
   if (Date.now() - trafficOkAt > 10 * 60 * 1000) setTraffic(null); // 10 dakikadır veri yoksa eski yüzdeyi gösterme
 }
 function pollTraffic(url) {
