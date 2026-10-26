@@ -36,6 +36,7 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #tidx.on{display:flex}
 #tidx b{font-size:2.2vh;font-weight:800;color:var(--tc,#3ecf4a)}
 #tidx span{color:var(--mute);letter-spacing:.06em}
+#tidx .ago{font-size:1.05vh;letter-spacing:.06em;color:var(--mute);opacity:.85}
 #tidx span i{font-style:normal;color:var(--c);font-weight:700;margin-left:.3vw}
 #tlegend{position:absolute;left:1vw;right:1vw;bottom:1.2vh;z-index:2;background:rgba(20,22,24,.78);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:3vh;padding:.8vh 1.2vw;display:flex;align-items:center;gap:.9vw;font-size:1.15vh;letter-spacing:.18em;text-transform:uppercase;color:var(--soft);font-weight:600}
 #tlegend i{flex:1;height:.8vh;border-radius:1vh;background:linear-gradient(90deg,#3ecf4a,#f2c230,#ee3b2f,#8b1a14)}
@@ -362,37 +363,47 @@ function setTraffic(t) {
   if (!t) { el.classList.remove('on'); return; }
   const sub = (name, v) => `<span>${name}<i style="--c:${tcol(v)}">%${v}</i></span>`;
   el.style.setProperty('--tc', tcol(t.all));
-  el.innerHTML = `<b>%${t.all}</b>${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}`;
+  const old = t.at && Date.now() - t.at > 5 * 60 * 1000 ? `<span class="ago">${new Date(t.at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })} itibarıyla</span>` : '';
+  el.innerHTML = `<b>%${t.all}</b>${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}${old}`;
   el.classList.add('on');
 }
 let trafficUrl = '', trafficTimer, trafficOkAt = 0;
 const DEBUG = /[?&]debug=1/.test(location.search);
-let tdbg, trafficTries = 0;
+let tdbg;
 function dbg(lines) {
   if (!DEBUG) return;
   if (!tdbg) { tdbg = document.createElement('pre'); tdbg.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;max-width:60vw;margin:0;padding:8px 10px;background:rgba(0,0,0,.85);color:#9fe;font:12px/1.4 monospace;border:1px solid #444;border-radius:6px;white-space:pre-wrap;word-break:break-all'; document.body.appendChild(tdbg); }
   tdbg.textContent = lines.join('\n');
 }
+const TRAFFIC_OK_MS = 2 * 60 * 1000, TRAFFIC_RETRY_MS = 30 * 1000, TRAFFIC_STALE_MS = 45 * 60 * 1000;
 async function fetchTraffic() {
   const t0 = new Date().toLocaleTimeString('tr-TR');
-  let info = '';
+  let info = '', ok = false;
   try {
     const r = await fetch(trafficUrl, { cache: 'no-store' });
     const text = await r.text();
     info = `HTTP ${r.status} · ${text.slice(0, 220)}`;
     const j = JSON.parse(text);
-    if (typeof j.all === 'number') { trafficOkAt = Date.now(); trafficTries = 0; setTraffic({ all: j.all, asia: j.asia, europe: j.europe }); }
-    else if (!info.includes('hata')) info += ' · (all alanı yok)';
+    if (typeof j.all === 'number') {
+      ok = true; trafficOkAt = Date.now();
+      const d = { all: j.all, asia: j.asia, europe: j.europe, at: trafficOkAt };
+      try { localStorage.setItem('trafficLast', JSON.stringify(d)); } catch (e) {}
+      setTraffic(d);
+    }
   } catch (e) { info = (info ? info + ' · ' : '') + 'HATA: ' + e.message; }
-  dbg(['trafficApi: ' + trafficUrl, 'son deneme: ' + t0, 'sonuç: ' + info, 'bar açık: ' + document.getElementById('tidx').classList.contains('on'), 'deneme sayısı (art arda hata): ' + trafficTries]);
-  // başarısızsa 15 sn sonra yeniden dene (en fazla 4 kez), sonra normal döngü
-  if (Date.now() - trafficOkAt > 60 * 1000 && trafficTries < 4) { trafficTries++; setTimeout(fetchTraffic, 15000); }
-  if (Date.now() - trafficOkAt > 10 * 60 * 1000) setTraffic(null); // 10 dakikadır veri yoksa eski yüzdeyi gösterme
+  if (!ok && Date.now() - trafficOkAt > TRAFFIC_STALE_MS) setTraffic(null); // 45 dakikadır veri yoksa eski yüzdeyi gizle
+  dbg(['trafficApi: ' + trafficUrl, 'son deneme: ' + t0, 'sonuç: ' + info, 'bar açık: ' + document.getElementById('tidx').classList.contains('on'), 'sonraki deneme: ' + (ok ? '2 dk' : '30 sn') + ' sonra']);
+  clearTimeout(trafficTimer);
+  trafficTimer = setTimeout(fetchTraffic, ok ? TRAFFIC_OK_MS : TRAFFIC_RETRY_MS);
 }
 function pollTraffic(url) {
   if (url === trafficUrl) return;
-  trafficUrl = url; clearInterval(trafficTimer);
-  fetchTraffic(); trafficTimer = setInterval(fetchTraffic, 2 * 60 * 1000);
+  trafficUrl = url; clearTimeout(trafficTimer);
+  try { // yeniden açılışta son iyi değeri hemen göster
+    const d = JSON.parse(localStorage.getItem('trafficLast') || 'null');
+    if (d && Date.now() - d.at < TRAFFIC_STALE_MS) { trafficOkAt = d.at; setTraffic(d); }
+  } catch (e) {}
+  fetchTraffic();
 }
 let lastRates = {}, lastWeather = null;
 const WMO = c => c === 0 ? ['Açık', '☀️', '🌙'] : c <= 2 ? ['Parçalı bulutlu', '⛅', '☁️'] : c === 3 ? ['Kapalı', '☁️', '☁️']
