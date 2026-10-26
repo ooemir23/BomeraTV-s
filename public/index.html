@@ -353,7 +353,9 @@ function setState(s) {
   setTicker(s.matches);
   setRates(s.rates);
   if (s.weather) setWeather(s.weather);
-  if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; setTraffic(s.traffic); dbg(['trafficApi: YOK (sunucu durumunda adres boş)']); }
+  if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; dbg(['trafficApi: YOK (sunucu durumunda adres boş)']); }
+  serverTraffic = s.traffic || null;
+  applyServerTraffic();
   setReviews(s.reviews);
 }
 const tcol = v => v <= 20 ? '#3ecf4a' : v <= 40 ? '#e6c229' : v <= 60 ? '#f08a24' : '#ee3b2f';
@@ -363,11 +365,18 @@ function setTraffic(t) {
   if (!t) { el.classList.remove('on'); return; }
   const sub = (name, v) => `<span>${name}<i style="--c:${tcol(v)}">%${v}</i></span>`;
   el.style.setProperty('--tc', tcol(t.all));
+  const src = t.source === 'tomtom' ? '<span class="ago">ana yollarda yavaşlama</span>' : '';
   const old = t.at && Date.now() - t.at > 5 * 60 * 1000 ? `<span class="ago">${new Date(t.at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })} itibarıyla</span>` : '';
-  el.innerHTML = `<b>%${t.all}</b>${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}${old}`;
+  el.innerHTML = `<b>%${t.all}</b>${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}${src}${old}`;
   el.classList.add('on');
 }
-let trafficUrl = '', trafficTimer, trafficOkAt = 0;
+let trafficUrl = '', trafficTimer, trafficOkAt = 0, serverTraffic = null;
+function applyServerTraffic() {
+  // İBB (Worker) verisi tazeyse o kalır; değilse sunucunun TomTom hesabı gösterilir
+  if (Date.now() - trafficOkAt < 10 * 60 * 1000) return;
+  if (serverTraffic) setTraffic({ ...serverTraffic, at: Date.parse(serverTraffic.updated) || Date.now() });
+  else if (!trafficUrl) setTraffic(null);
+}
 const DEBUG = /[?&]debug=1/.test(location.search);
 let tdbg;
 function dbg(lines) {
@@ -391,7 +400,7 @@ async function fetchTraffic() {
       setTraffic(d);
     }
   } catch (e) { info = (info ? info + ' · ' : '') + 'HATA: ' + e.message; }
-  if (!ok && Date.now() - trafficOkAt > TRAFFIC_STALE_MS) setTraffic(null); // 45 dakikadır veri yoksa eski yüzdeyi gizle
+  if (!ok) { if (Date.now() - trafficOkAt > 10 * 60 * 1000 && serverTraffic) applyServerTraffic(); else if (Date.now() - trafficOkAt > TRAFFIC_STALE_MS) setTraffic(null); } // eski yüzdeyi 45 dk sonra gizle
   dbg(['trafficApi: ' + trafficUrl, 'son deneme: ' + t0, 'sonuç: ' + info, 'bar açık: ' + document.getElementById('tidx').classList.contains('on'), 'sonraki deneme: ' + (ok ? '2 dk' : '30 sn') + ' sonra']);
   clearTimeout(trafficTimer);
   trafficTimer = setTimeout(fetchTraffic, ok ? TRAFFIC_OK_MS : TRAFFIC_RETRY_MS);
