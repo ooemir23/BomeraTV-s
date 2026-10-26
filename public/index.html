@@ -365,7 +365,7 @@ function setTraffic(t) {
   if (!t) { el.classList.remove('on'); return; }
   const sub = (name, v) => `<span>${name}<i style="--c:${tcol(v)}">%${v}</i></span>`;
   el.style.setProperty('--tc', tcol(t.all));
-  const src = t.source === 'tomtom' ? '<span class="ago">ana yollarda yavaşlama</span>' : '';
+  const src = t.source === 'tomtom' ? '<span class="ago">TomTom</span>' : '';
   const old = t.at && Date.now() - t.at > 5 * 60 * 1000 ? `<span class="ago">${new Date(t.at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })} itibarıyla</span>` : '';
   el.innerHTML = `<b>%${t.all}</b>${sub('Avrupa', t.europe)}${sub('Anadolu', t.asia)}${src}${old}`;
   el.classList.add('on');
