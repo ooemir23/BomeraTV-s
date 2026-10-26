@@ -250,7 +250,7 @@ function render() {
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
   else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
-  dots.innerHTML = pages.length > 10 ? `<span class="cnt">${page + 1} / ${pages.length}</span>` : pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
+  dots.innerHTML = pages.length > 6 ? `<span class="cnt">${page + 1} / ${pages.length}</span>` : pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
 }
 function tick() {
   if (PIN && PIN !== 'goal') return;

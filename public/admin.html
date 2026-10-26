@@ -134,7 +134,9 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div class="card" style="grid-column:1/-1"><h2>Trafik Yüzdesi (isteğe bağlı)</h2>
       <p class="hint">Haritanın üstünde İstanbul geneli, Avrupa ve Anadolu yakası trafik yoğunluğu yüzdesini gösterir. İBB verisine sunucu üzerinden erişilemediği için küçük bir Cloudflare Worker gerekir (kurulum adımları sohbette anlatıldı, kod: <code>tools/cloudflare-traffic-worker.js</code>). Worker adresini buraya yapıştırın; boş bırakırsanız yüzde gösterilmez.</p>
       <div class="row"><div class="fld"><label class="f">Worker adresi</label><input type="text" id="tapi" placeholder="https://trafik.kullanici.workers.dev"></div>
-      <button class="btn" onclick="api('PUT','/options',{trafficApi:$('tapi').value},'Trafik adresi kaydedildi')">Kaydet</button></div></div>
+      <button class="btn" onclick="api('PUT','/options',{trafficApi:$('tapi').value},'Trafik adresi kaydedildi')">Kaydet</button>
+      <button class="btn ghost" onclick="testTraffic()">Test et</button></div>
+      <p id="tres" class="hint" style="margin:12px 0 0"></p></div>
     <div class="card"><h2>Hızlı İşlemler</h2><p class="hint">Tüm TV'lerde anında test gösterimi başlatır.</p>
       <div class="row">
         <button class="btn" onclick="post('/goal/test','Gol animasyonu tüm TV\'lere gönderildi')">⚽ Gol animasyonunu test et</button>
@@ -348,6 +350,20 @@ function renderManual() {
 async function addMatch() {
   const ok = await api('POST', '/matches', { home: $('mh').value.trim(), away: $('ma').value.trim(), time: $('mt').value, league: $('ml').value.trim() }, 'Maç eklendi');
   if (ok) ['mh', 'ma', 'mt', 'ml'].forEach(i => $(i).value = '');
+}
+
+async function testTraffic() {
+  const url = $('tapi').value.trim(), out = $('tres');
+  if (!url) { out.textContent = 'Önce bir adres girin.'; return; }
+  out.textContent = 'Deneniyor… (en fazla 15 sn)';
+  try {
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 15000);
+    const r = await fetch(url, { cache: 'no-store', signal: ctrl.signal }); clearTimeout(t);
+    const j = await r.json();
+    out.innerHTML = typeof j.all === 'number'
+      ? `✅ Çalışıyor: İstanbul %${j.all}, Avrupa %${j.europe}, Anadolu %${j.asia} <span style="opacity:.7">(Cloudflare sunucusu: ${esc(j.colo || '?')})</span>. TV'de yüzde çubuğu görünecek.`
+      : `❌ Worker çalışıyor ama İBB'den veri alamadı (Cloudflare sunucusu: ${esc(j.colo || '?')}, hata: ${esc(j.error || r.status)}). Bu bağlantıdan İBB'ye erişilemiyor, yüzde gösterilemez.`;
+  } catch (e) { out.textContent = '❌ Worker adresine ulaşılamadı: ' + e.message; }
 }
 
 /* kanallar + puan durumu */
