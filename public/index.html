@@ -166,7 +166,14 @@ html.lite #qr-right .lbl,html.lite #qr-left .lbl,html.lite #tchip,html.lite #tid
 html.lite .tbox .lg img,html.lite .trw .tn img{filter:none}
 html.lite #traffic iframe{filter:none}
 html.lite #traffic::after{box-shadow:none}
+#root{position:fixed;left:0;top:0;width:100vw;height:100vh;height:100dvh;transform-origin:50% 50%}
+#guide{position:fixed;z-index:98;pointer-events:none;display:none;border:.6vh solid #7CFC00;box-shadow:0 0 0 .3vh #000,inset 0 0 0 .3vh #000}
+#guide.on{display:block}
+#guide b{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000;color:#7CFC00;font:700 2.2vh/1.3 monospace;padding:1vh 1.6vw;text-align:center;border:.3vh solid #7CFC00;white-space:nowrap}
+#guide i{position:absolute;width:3vh;height:3vh;background:#7CFC00}
+#guide i:nth-child(1){left:0;top:0}#guide i:nth-child(2){right:0;top:0}#guide i:nth-child(3){left:0;bottom:0}#guide i:nth-child(4){right:0;bottom:0}
 </style></head><body>
+<div id="root">
 <div id="app">
   <div id="stage"><div id="frame"><div id="bgw"><canvas id="bgc"></canvas></div><video id="v" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><video id="v2" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><img id="img" alt=""><div id="qr-left" class="qrc"></div><div id="qr-right" class="qrc"></div></div></div>
   <div id="side">
@@ -178,6 +185,8 @@ html.lite #traffic::after{box-shadow:none}
   <div id="ticker"><div id="tclock"><b id="tc-time">--:--</b><small id="tc-date"></small></div><div id="tlabel"><span id="tl">Canlı Skorlar</span></div><div id="tview"><div id="ttrack"><div id="ta"></div><div id="tb"></div></div></div></div>
 </div>
 <div id="bday"><p id="btxt"></p></div>
+</div>
+<div id="guide"><i></i><i></i><i></i><i></i><b id="gtxt"></b></div>
 <script>
 const els = [document.getElementById('v'), document.getElementById('v2')], img = document.getElementById('img');
 let ci = 0; const curV = () => els[ci], idleV = () => els[1 - ci];
@@ -426,7 +435,16 @@ function setTicker(list) {
   if (key !== tickKey) { tickKey = key; track.style.animation = 'none'; void track.offsetWidth; track.style.animation = ''; }
   track.style.animationDuration = secs + 's';
 }
+function applySafe(inset, guide) {
+  const i = Math.max(0, Math.min(12, Number(inset) || 0));
+  document.getElementById('root').style.transform = i > 0 ? `scale(${1 - 2 * i / 100})` : 'none'; // %0'da dönüşüm hiç uygulanmaz
+  const g = document.getElementById('guide');
+  g.style.inset = i + '%';
+  g.classList.toggle('on', !!guide);
+  document.getElementById('gtxt').innerHTML = `ÇERÇEVENİN TAMAMI GÖRÜNMELİ<br>kenar payı: %${i}`;
+}
 function setState(s) {
+  applySafe(s.safeInset, s.safeGuide);
   const ids = s.videos.map(x => x.id).join();
   const changed = ids !== videos.map(x => x.id).join();
   if ((s.fxMode || 'auto') !== window.__fx) { window.__fx = s.fxMode || 'auto'; window.__applyFx(); }

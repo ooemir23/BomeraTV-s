@@ -140,6 +140,15 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
       <button class="btn ghost" onclick="testDirect()">Doğrudan İBB testi</button></div>
       <p id="tres" class="hint" style="margin:12px 0 0"></p>
 </div>
+    <div class="card"><h2>Ekran Kenar Payı (TV kırpıyorsa)</h2>
+      <p class="hint">Büyük televizyonlar (özellikle 75 ve 85 inç) HDMI görüntüsünü büyütüp kenarlarını kırpabilir (overscan): saat, logo ya da sağdaki kartlar yarım görünür. <b>Önce TV ayarını düzeltin</b> (aşağıdaki ipucu). Düzelmezse buradan tüm ekranlar için içeriği biraz küçültebilirsiniz. Tüm TV'ler aynı görüntüyü aldığı için bu ayar hepsini etkiler; kırpmayan küçük TV'lerde ince bir koyu kenar kalır.</p>
+      <div class="row" style="align-items:center">
+        <div class="fld" style="max-width:420px"><label class="f">Kenar payı: <b id="insetval">0</b>%</label><input type="range" id="inset" min="0" max="12" step="0.5" value="0" oninput="$('insetval').textContent=this.value" onchange="api('PUT','/options',{safeInset:Number(this.value)},'Kenar payı kaydedildi')"></div>
+        <label class="sw" title="Hizalama çerçevesi"><input type="checkbox" id="guide" onchange="api('PUT','/options',{safeGuide:this.checked},this.checked?'Hizalama çerçevesi açıldı':'Hizalama çerçevesi kapandı')"><i></i></label>
+        <span style="font-size:14px">Hizalama çerçevesini göster</span>
+      </div>
+      <p class="hint" style="margin-top:12px"><b>Nasıl ayarlanır:</b> "Hizalama çerçevesini göster"i açın. TV'lerde yeşil bir çerçeve çıkar. En çok kırpan TV'de çerçevenin dört kenarı ve köşelerindeki kareler tam görünene kadar kaydırıcıyı artırın. Sonra çerçeveyi kapatın.<br><b>TV ayarı ipucu:</b> TV kumandasında Ayarlar → Görüntü → <i>Görüntü Boyutu / En-Boy Oranı</i> bölümünde <i>"Just Scan"</i>, <i>"Ekrana Sığdır (Screen Fit)"</i>, <i>"Orijinal"</i> ya da <i>"1:1"</i> seçeneğini seçin ve <i>"Overscan"</i> kapalı olsun. Bu seçenek genelde kenar kırpmayı tamamen kaldırır ve en iyi çözümdür.</p>
+    </div>
     <div class="card"><h2>Performans</h2>
       <p class="hint">TV ekranı takılıyorsa efektleri azaltın. <b>Otomatik</b>: Android uygulamasında (APK) hafif, bilgisayar tarayıcısında tam görünüm. <b>Hafif</b>: her yerde ağır efektler kapalı (bulanıklık, cam efekti, koyu harita, videonun arkasındaki bulanık dolgu). <b>Tam</b>: her yerde tüm efektler açık.</p>
       <div class="row"><div class="fld" style="max-width:320px"><label class="f">Görsel efektler</label>
@@ -495,6 +504,7 @@ function counts() {
 async function load() {
   const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
+  $('inset').value = db.safeInset || 0; $('insetval').textContent = db.safeInset || 0; $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
   renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
