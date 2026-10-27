@@ -425,6 +425,7 @@ async function runOptQueue() {
 for (const v of db.videos) if (v.status === 'processing') enqueueOpt(v.id); // yarım kalanları sürdür
 
 const app = express();
+app.use(require('compression')()); // metin/JSON/HTML sıkıştırılır (videolar ve resimler zaten sıkışık, atlanır)
 app.use(express.json());
 
 function auth(req, res, next) {
@@ -713,7 +714,7 @@ app.post('/api/admin/goal/test', (_, res) => {
 app.post('/api/admin/birthday/fire', (_, res) => { fireBirthday(); res.json({ ok: true }); });
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ server, path: '/ws', perMessageDeflate: { threshold: 1024 } });
 function broadcast(msg) {
   const s = JSON.stringify(msg);
   wss.clients.forEach(c => c.readyState === 1 && c.send(s));

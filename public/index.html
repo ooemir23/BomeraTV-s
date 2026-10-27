@@ -171,6 +171,7 @@ background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100
 .ti{display:flex;align-items:center;gap:.8vw;font-size:2.7vh;font-weight:500;padding:0 2.4vw;color:var(--white)}
 .ti .lg{font-size:1.6vh;letter-spacing:.2em;color:var(--accent2);font-weight:600;text-transform:uppercase}
 .ti .sc{font-weight:700;background:rgba(255,255,255,.1);padding:.3vh 1vw;border-radius:1vh;font-size:2.7vh}
+.ti .up{color:#3ecf4a;font-weight:700}.ti .dn{color:#ff6b6b;font-weight:700}.ti .fl{color:var(--mute)}.ti b{color:var(--accent2);margin-right:.2vw}
 .ti .lv{color:#ff5a5a;font-weight:600;font-size:1.8vh;letter-spacing:.08em}
 .ti .ft{color:var(--mute);font-size:1.8vh;letter-spacing:.08em}
 .ti::after{content:"◆";color:var(--accent);font-size:1.3vh;margin-left:2.4vw}
@@ -458,11 +459,34 @@ function setQr(list, show) {
   }
 }
 let tickKey = '';
+// Gösterilecek maç yoksa alt bant: hava, piyasalar, haber, tarihte bugün, nöbetçi eczane ve puan durumu liderleri (dönüşümlü sıra)
+function infoItems() {
+  const f = (x, d = 2) => x ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
+  const chgT = v => (v == null || !isFinite(v)) ? '' : ` <span class="${v > 0.005 ? 'up' : v < -0.005 ? 'dn' : 'fl'}">${v > 0.005 ? '▲' : v < -0.005 ? '▼' : '•'}${Math.abs(v).toFixed(1).replace('.', ',')}%</span>`;
+  const it = (tag, html) => `<span class="ti"><span class="lg">${tag}</span><span>${html}</span></span>`;
+  const cats = [];
+  const w = lastWeather;
+  if (w) cats.push([it('HAVA', `İstanbul ${Math.round(w.temp)}° ${esc(WMO(w.code)[0])} · bugün ${Math.round(w.min)}° / ${Math.round(w.max)}°`)]);
+  const r = lastRates || {}, mk = [];
+  if (r.usd) mk.push(it('PİYASA', `USD ${f(r.usd)} ₺ · EUR ${f(r.eur)} ₺${r.gbp ? ` · STERLİN ${f(r.gbp)} ₺` : ''}`));
+  if (r.gold) mk.push(it('PİYASA', `ALTIN ${f(r.gold, 0)} ₺${chgT(r.goldCh)}${r.bist ? ` · BIST 100 ${f(r.bist, 0)}${chgT(r.bistCh)}` : ''}${r.btc ? ` · BITCOIN $${f(r.btc, 0)}${chgT(r.btcCh)}` : ''}`));
+  cats.push(mk);
+  cats.push((showNews && newsData ? newsData.items : []).map(n => it('HABER', `${esc(n.title)} <span class="ft">${esc(n.source)}</span>`)));
+  cats.push((showOtd && otdData ? otdData.items : []).map(e => it('TARİHTE BUGÜN', `<b>${esc(e.year)}</b> ${esc(e.text)}`)));
+  cats.push((showPharm && pharmData ? pharmData.items : []).map(p => it('NÖBETÇİ ECZANE', `${esc(p.name)} · ${esc(p.address)}${p.phone ? ' · ☎ ' + esc(fmtPhone(p.phone)) : ''}`)));
+  if (showStandings) cats.push(Object.entries(standingsData || {}).filter(([, rows]) => rows && rows.length).map(([lg, rows]) => it('PUAN DURUMU', `${esc(lg)}: ${rows.slice(0, 3).map(x => `${esc(x.rank)}. ${esc(x.name)} (${esc(x.pts)})`).join(' · ')}`)));
+  const out = [], max = Math.max(0, ...cats.map(c => c.length));
+  for (let i = 0; i < max; i++) for (const c of cats) if (c[i]) out.push(c[i]);
+  return out;
+}
 function setTicker(list) {
   const live = list.filter(m => m.live), fin = list.filter(m => m.final);
   const shown = live.length || fin.length ? [...live, ...fin] : list.slice(0, 8);
-  const label = live.length ? 'Canlı Skorlar' : fin.length ? 'Günün Sonuçları' : 'Sıradaki Maçlar';
-  const items = shown.map(m => {
+  let label = live.length ? 'Canlı Skorlar' : fin.length ? 'Günün Sonuçları' : 'Sıradaki Maçlar';
+  const info = shown.length ? [] : infoItems();
+  window.__tickerInfo = !shown.length && info.length > 0;
+  if (window.__tickerInfo) label = 'Güncel Bilgiler';
+  const items = window.__tickerInfo ? info.join('') : shown.map(m => {
     const mid = m.hs != null ? `<span class="sc">${esc(m.hs)} - ${esc(m.as)}</span>` : '<span class="ft">vs</span>';
     const tag = m.live ? `<span class="lv">● ${esc(m.clock || 'CANLI')}</span>` : m.final ? '<span class="ft">MS</span>' : `<span class="ft">${esc(m.time)}</span>`;
     return `<span class="ti"><span class="lg">${esc(m.league)}</span><span>${esc(m.home)}</span>${mid}<span>${esc(m.away)}</span>${tag}</span>`;
@@ -475,7 +499,7 @@ function setTicker(list) {
   let reps = Math.max(1, Math.ceil(view / Math.max(1, a.scrollWidth)));
   a.innerHTML = items.repeat(reps); b.innerHTML = items.repeat(reps);
   const secs = Math.max(20, a.scrollWidth / (innerWidth * 0.055));
-  const key = shown.map(m => m.id).join() + label;
+  const key = window.__tickerInfo ? 'info' + info.length : shown.map(m => m.id).join() + label;
   if (key !== tickKey) { tickKey = key; track.style.animation = 'none'; void track.offsetWidth; track.style.animation = ''; }
   track.style.animationDuration = secs + 's';
 }
@@ -508,9 +532,10 @@ function setState(s) {
   const infoSig = JSON.stringify([s.pharmacies, s.showPharmacy, s.onThisDay, s.showOnThisDay, s.news, s.showNews]);
   if (infoSig !== window.__infoSig) { window.__infoSig = infoSig; pharmData = s.pharmacies; showPharm = s.showPharmacy !== false; otdData = s.onThisDay; showOtd = s.showOnThisDay !== false; newsData = s.news; showNews = s.showNews !== false; window.__forceRender = true; }
   setMatches(s.matches, s.standings, s.showStandings);
-  setTicker(s.matches);
+  lastRates = s.rates || lastRates; if (s.weather) lastWeather = s.weather; // bant çizilmeden önce kur ve hava hazır olsun
   setRates(s.rates);
   if (s.weather) setWeather(s.weather);
+  setTicker(s.matches);
   if (window.BomeraNative) { /* APK içinde: İBB verisini uygulama doğrudan verir */ } else if (s.trafficApi) pollTraffic(s.trafficApi); else { trafficUrl = ''; dbg(['trafficApi: YOK (sunucu durumunda adres boş)']); }
   serverTraffic = s.traffic ? { ...s.traffic, at: s.traffic.at || Date.parse(s.traffic.updated) } : null;
   applyServerTraffic();
@@ -618,8 +643,8 @@ function renderPanel() {
   document.getElementById('rates').innerHTML = wx + `<div id="rrow" class="swap">${rateSets[rateIdx % rateSets.length]}</div>`;
   startRateSwap();
 }
-function setRates(r) { lastRates = r; renderPanel(); }
-function setWeather(w) { lastWeather = w; renderPanel(); }
+function setRates(r) { lastRates = r; renderPanel(); if (window.__tickerInfo) setTicker(matches); }
+function setWeather(w) { lastWeather = w; renderPanel(); if (window.__tickerInfo) setTicker(matches); }
 const goalQueue = []; let goalBusy = false;
 function showGoal(g) {
   goalQueue.push(g);
