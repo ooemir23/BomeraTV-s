@@ -69,13 +69,37 @@ async function refreshRates() {
       broadcast({ type: 'rates', rates });
     } catch (e) { console.error('Kur alınamadı:', e.message); }
   }
-  if (cacheAge('rates:gold') > 15 * MIN) {
+  // altın + BIST 100 (aynı kaynak): borsa saatlerinde (hafta içi 09:30-18:30) 15 dk, dışında 2 saatte bir
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+  const pv = t => (parts.find(p => p.type === t) || {}).value;
+  const mins = Number(pv('hour')) * 60 + Number(pv('minute')), weekday = !['Sat', 'Sun'].includes(pv('weekday'));
+  const marketOpen = weekday && mins >= 9 * 60 + 30 && mins <= 18 * 60 + 30;
+  if (cacheAge('rates:gold') > (marketOpen ? 15 * MIN : 2 * HOUR) || rates.bist == null) {
     try {
       const g = await (await fetch('https://finans.truncgil.com/v4/today.json')).json();
-      rates = { ...rates, gold: Number(g.GRA.Selling) };
+      rates = { ...rates, gold: Number(g.GRA.Selling), goldCh: Number(g.GRA.Change) };
+      if (g.XU100 && Number(g.XU100.Selling) > 0) rates = { ...rates, bist: Number(g.XU100.Selling), bistCh: Number(g.XU100.Change) };
       cachePut('rates:gold', true); cachePut('rates', rates);
       broadcast({ type: 'rates', rates });
-    } catch (e) { console.error('Altın alınamadı:', e.message); if (!rates.gold) setTimeout(refreshRates, 30 * 1000); }
+    } catch (e) { console.error('Altın/BIST alınamadı:', e.message); if (!rates.gold || rates.bist == null) setTimeout(refreshRates, 30 * 1000); }
+  }
+  // Bitcoin (USD, 24 saatlik değişim): 7/24 işlem görür, 10 dk
+  if (cacheAge('rates:btc') > 10 * MIN) {
+    try {
+      let btc;
+      try {
+        const j = await (await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true')).json();
+        btc = { usd: Number(j.bitcoin.usd), ch: Number(j.bitcoin.usd_24h_change) };
+        if (!(btc.usd > 0)) throw new Error('boş');
+      } catch (e1) {
+        const j = await (await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT')).json(); // yedek kaynak
+        btc = { usd: Number(j.lastPrice), ch: Number(j.priceChangePercent) };
+        if (!(btc.usd > 0)) throw new Error('Bitcoin verisi alınamadı');
+      }
+      rates = { ...rates, btc: btc.usd, btcCh: btc.ch };
+      cachePut('rates:btc', true); cachePut('rates', rates);
+      broadcast({ type: 'rates', rates });
+    } catch (e) { console.error('Bitcoin alınamadı:', e.message); }
   }
 }
 refreshRates();

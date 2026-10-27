@@ -85,6 +85,8 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 .trw .tn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .trw .pt{font-weight:800;color:var(--white)}
 position:absolute;top:.8vh;right:.8vw}
+.m .corner{position:absolute;top:.8vh;right:.8vw}
+.mid .lv{margin-bottom:.5vh}
 .pill{font-weight:700;letter-spacing:.08em;padding:.25vh .6vw;border-radius:2vh;background:rgba(255,255,255,.08);color:var(--soft);font-size:1.15vh;white-space:nowrap}
 .pill.live{background:rgba(255,77,77,.16);color:var(--live)}
 .pill.live::before{content:"";display:inline-block;width:.5vh;height:.5vh;margin-right:.45vw;border-radius:50%;background:var(--live);animation:pulse 1.2s infinite}
@@ -114,6 +116,13 @@ position:absolute;top:.8vh;right:.8vw}
 #rrow{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);padding-top:.9vh}
 #rrow div{text-align:center;border-right:1px solid var(--line)}
 #rrow div:last-child{border:0}
+#rrow2{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);padding-top:.8vh;margin-top:.8vh}
+#rrow2 div{text-align:center;border-right:1px solid var(--line)}
+#rrow2 div:last-child{border:0}
+#rrow2 small{display:block;font-size:1.1vh;letter-spacing:.22em;color:var(--accent2);font-weight:600}
+#rrow2 strong{font-size:2.1vh;font-weight:600;white-space:nowrap}
+.chg{font-style:normal;font-weight:700;letter-spacing:0;margin-left:.35vw;font-size:1.05vh}
+.chg.up{color:#3ecf4a}.chg.dn{color:#ff6b6b}.chg.fl{color:var(--mute)}
 #rrow small{display:block;font-size:1.1vh;letter-spacing:.22em;color:var(--accent2);font-weight:600}
 #rrow strong{font-size:2.1vh;font-weight:600;white-space:nowrap}
 #rrow strong i{font-style:normal;font-size:1.3vh;color:var(--mute);margin-left:.15vw;font-weight:400}
@@ -269,9 +278,10 @@ function team(name, logo, lose) {
 function card(m) {
   const hasScore = m.hs != null;
   const hw = hasScore && +m.hs > +m.as, aw = hasScore && +m.as > +m.hs;
-  const corner = m.live ? `<span class="pill live">CANLI ${esc(m.clock || '')}</span>` : m.final ? '<span class="pill fin">MS</span>' : '';
+  const corner = m.final ? '<span class="pill fin">MS</span>' : '';
   const dayl = '';
-  const mid = hasScore ? `<div class="sc ${m.final ? 'fin' : ''}">${esc(m.hs)}<i>-</i>${esc(m.as)}</div>` : `<div class="tm">${esc(m.time)}</div>`;
+  const live = m.live ? `<div class="lv"><span class="pill live">CANLI ${esc(m.clock || '')}</span></div>` : '';
+  const mid = live + (hasScore ? `<div class="sc ${m.final ? 'fin' : ''}">${esc(m.hs)}<i>-</i>${esc(m.as)}</div>` : `<div class="tm">${esc(m.time)}</div>`);
   const chn = m.channel ? `<span class="chn">📺 ${esc(m.channel)}</span>` : '';
   return `<div class="m">${dayl}<span class="corner">${corner}</span><div class="tr3">${team(m.home, m.hl, m.final && aw)}<div class="mid">${mid}</div>${team(m.away, m.al, m.final && hw)}</div>${chn}</div>`.replace('class="m"', m.channel ? 'class="m hasch"' : 'class="m"');
 }
@@ -557,6 +567,8 @@ let lastRates = {}, lastWeather = null;
 const WMO = c => c === 0 ? ['Açık', '☀️', '🌙'] : c <= 2 ? ['Parçalı bulutlu', '⛅', '☁️'] : c === 3 ? ['Kapalı', '☁️', '☁️']
   : c <= 48 ? ['Sisli', '🌫️', '🌫️'] : c <= 57 ? ['Çisenti', '🌦️', '🌦️'] : c <= 67 ? ['Yağmurlu', '🌧️', '🌧️']
   : c <= 77 ? ['Karlı', '❄️', '❄️'] : c <= 82 ? ['Sağanak', '🌧️', '🌧️'] : c <= 86 ? ['Kar sağanağı', '❄️', '❄️'] : ['Gök gürültülü', '⛈️', '⛈️'];
+// günlük değişim: ▲ yeşil, ▼ kırmızı
+const chg = v => (v == null || !isFinite(v)) ? '' : `<em class="chg ${v > 0.005 ? 'up' : v < -0.005 ? 'dn' : 'fl'}">${v > 0.005 ? '▲' : v < -0.005 ? '▼' : '•'}${Math.abs(v).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</em>`;
 function renderPanel() {
   const r = lastRates, w = lastWeather;
   const f = (x, d = 2) => x ? x.toLocaleString('tr-TR', {minimumFractionDigits: d, maximumFractionDigits: d}) : '--';
@@ -569,7 +581,8 @@ function renderPanel() {
       <div class="city">İstanbul<small>${Math.round(w.min)}° / ${Math.round(w.max)}°</small></div></div>`;
   }
   document.getElementById('rates').innerHTML = wx +
-    `<div id="rrow"><div><small>USD</small><strong>${f(r.usd)}<i>₺</i></strong></div><div><small>EUR</small><strong>${f(r.eur)}<i>₺</i></strong></div><div><small>ALTIN</small><strong>${f(r.gold, 0)}<i>₺</i></strong></div></div>`;
+    `<div id="rrow"><div><small>USD</small><strong>${f(r.usd)}<i>₺</i></strong></div><div><small>EUR</small><strong>${f(r.eur)}<i>₺</i></strong></div><div><small>ALTIN${chg(r.goldCh)}</small><strong>${f(r.gold, 0)}<i>₺</i></strong></div></div>` +
+    `<div id="rrow2"><div><small>BIST 100${chg(r.bistCh)}</small><strong>${f(r.bist, 0)}</strong></div><div><small>BITCOIN${chg(r.btcCh)}</small><strong>${r.btc ? '$' + f(r.btc, 0) : '--'}</strong></div></div>`;
 }
 function setRates(r) { lastRates = r; renderPanel(); }
 function setWeather(w) { lastWeather = w; renderPanel(); }
