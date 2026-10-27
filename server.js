@@ -59,12 +59,12 @@ setInterval(refreshWeather, 10 * MIN); // kontrol sıklığı; ağa yalnızca 30
 
 let rates = cacheGet('rates') || { usd: null, eur: null, gold: null, updated: null };
 async function refreshRates() {
-  if (cacheAge('rates:fx') > 60 * MIN) { // döviz kaynağı günde bir güncellenir; saatte bir sormak yeter
+  if (cacheAge('rates:fx') > 60 * MIN || rates.gbp == null) { // döviz kaynağı günde bir güncellenir; saatte bir sormak yeter
     try {
       const r = await fetch('https://open.er-api.com/v6/latest/USD');
       const j = await r.json();
       const t = j.rates.TRY;
-      rates = { ...rates, usd: t, eur: t / j.rates.EUR, updated: new Date().toISOString() };
+      rates = { ...rates, usd: t, eur: t / j.rates.EUR, gbp: j.rates.GBP ? t / j.rates.GBP : rates.gbp, updated: new Date().toISOString() };
       cachePut('rates:fx', true); cachePut('rates', rates);
       broadcast({ type: 'rates', rates });
     } catch (e) { console.error('Kur alınamadı:', e.message); }
@@ -292,6 +292,89 @@ async function refreshPharmacies(force) {
 setTimeout(refreshPharmacies, 4000);
 setInterval(refreshPharmacies, 30 * MIN); // ağa yalnızca nöbet günü değişince ya da ayar değişince gidilir
 
+
+// ---- Veritabanı yedekleri: günde bir (sabah 04:00'ten sonra), elle ve geri yüklemeden önce; son 30 tanesi tutulur ----
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+fs.mkdirSync(BACKUP_DIR, { recursive: true });
+const BACKUP_NAME = /^db-[A-Za-z0-9_.-]+\.json$/;
+function listBackups() {
+  return fs.readdirSync(BACKUP_DIR).filter(n => BACKUP_NAME.test(n)).map(n => {
+    const st = fs.statSync(path.join(BACKUP_DIR, n));
+    return { name: n, size: st.size, time: st.mtimeMs };
+  }).sort((a, b) => b.time - a.time);
+}
+function backupNow(tag) {
+  const now = new Date();
+  const hhmm = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(now).replace(':', '');
+  const name = `db-${ymd(now)}_${hhmm}-${tag}.json`;
+  fs.writeFileSync(path.join(BACKUP_DIR, name), JSON.stringify(db, null, 2));
+  for (const old of listBackups().slice(30)) fs.rmSync(path.join(BACKUP_DIR, old.name), { force: true }); // en yeni 30 kalsın
+  return name;
+}
+function autoBackup() {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', hour12: false }).format(new Date()));
+  const today = ymd(new Date());
+  if (hour >= 4 && !listBackups().some(b => b.name.startsWith('db-' + today) && b.name.endsWith('-oto.json'))) {
+    try { backupNow('oto'); } catch (e) { console.error('Yedek alınamadı:', e.message); }
+  }
+}
+setTimeout(autoBackup, 8000);
+setInterval(autoBackup, 30 * 60 * 1000);
+
+// ---- Medya optimizasyonu (ffmpeg): videolar en fazla 1080p/30fps/6 Mbps H.264, sessiz, hızlı başlatmalı; fotoğraflar en fazla 1920 piksel ----
+const { spawn } = require('child_process');
+const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
+let ffmpegOk = false;
+try { const t = spawn(FFMPEG, ['-version'], { stdio: 'ignore' }); t.on('error', () => {}); t.on('close', c => { ffmpegOk = c === 0; }); } catch (e) { /* yok */ }
+const optQueue = [];
+let optBusy = false;
+function runFfmpeg(args, timeoutMs = 20 * 60 * 1000) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(FFMPEG, ['-nostdin', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
+    try { require('os').setPriority(p.pid, 15); } catch (e) { /* öncelik düşürülemedi */ }
+    let err = '';
+    p.stderr.on('data', d => { err = (err + d).slice(-1500); });
+    const t = setTimeout(() => p.kill('SIGKILL'), timeoutMs);
+    p.on('error', e => { clearTimeout(t); reject(e); });
+    p.on('close', code => { clearTimeout(t); code === 0 ? resolve() : reject(new Error('ffmpeg ' + code + ': ' + err.trim().split('\n').slice(-2).join(' | '))); });
+  });
+}
+const SCALE = "scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
+async function optimizeItem(id) {
+  const v = db.videos.find(x => x.id === id);
+  if (!v) return;
+  const src = path.join(UPLOAD_DIR, v.file);
+  const done = (patch) => { const c = db.videos.find(x => x.id === id); if (c) { Object.assign(c, { status: 'ready', reopt: false, optimized: true }, patch); changed(); } };
+  if (!fs.existsSync(src)) return done({ optError: 'dosya bulunamadı' });
+  const isImg = v.type === 'image';
+  if (isImg && /\.(gif|svg)$/i.test(v.file)) return done({});
+  const outName = uid() + (isImg ? '.jpg' : '.mp4'), out = path.join(UPLOAD_DIR, outName);
+  const args = isImg
+    ? ['-y', '-i', src, '-vf', SCALE, '-frames:v', '1', '-q:v', '3', out]
+    : ['-y', '-i', src, '-vf', SCALE + ',fps=30,format=yuv420p', '-c:v', 'libx264', '-profile:v', 'high', '-level', '4.1', '-preset', 'veryfast', '-crf', '23', '-maxrate', '6M', '-bufsize', '12M', '-an', '-movflags', '+faststart', '-threads', '2', out];
+  const before = fs.statSync(src).size;
+  try {
+    await runFfmpeg(args);
+    const after = fs.statSync(out).size;
+    if (!db.videos.find(x => x.id === id)) { fs.rmSync(out, { force: true }); return; } // bu arada silinmiş
+    if (after >= before && v.reopt) { fs.rmSync(out, { force: true }); return done({ sizeBefore: before, sizeAfter: before }); } // zaten küçükmüş
+    fs.rmSync(src, { force: true });
+    done({ file: outName, sizeBefore: before, sizeAfter: after, optError: '' });
+  } catch (e) {
+    fs.rmSync(out, { force: true });
+    console.error('Optimizasyon başarısız:', v.name, e.message);
+    done({ optError: String(e.message).slice(0, 200), optimized: false }); // orijinal dosya kullanılır
+  }
+}
+function enqueueOpt(id) { if (!optQueue.includes(id)) optQueue.push(id); runOptQueue(); }
+async function runOptQueue() {
+  if (optBusy) return;
+  optBusy = true;
+  while (optQueue.length) { const id = optQueue.shift(); try { await optimizeItem(id); } catch (e) { console.error('Kuyruk hatası:', e.message); } }
+  optBusy = false;
+}
+for (const v of db.videos) if (v.status === 'processing') enqueueOpt(v.id); // yarım kalanları sürdür
+
 const app = express();
 app.use(express.json());
 
@@ -305,7 +388,7 @@ app.use(['/admin.html', '/admin', '/api/admin'], auth);
 app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
 
 const publicState = () => ({
-  videos: db.videos.map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file, type: v.type || 'video' })),
+  videos: db.videos.filter(v => v.status !== 'processing' || v.reopt).map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file, type: v.type || 'video' })),
   imageSeconds: db.imageSeconds,
   reviews: (db.reviews || []).filter(r => r.rating >= 4).map(({ id, author, rating, text }) => ({ id, author, rating, text })),
   matches: [
@@ -421,6 +504,30 @@ app.get('/api/admin/cache', (_, res) => {
     puanDurumu: Object.fromEntries([...standings.keys()].map(c => [c, age('standings:' + c)])),
   });
 });
+app.post('/api/admin/media/optimize-all', (_, res) => {
+  let n = 0;
+  for (const v of db.videos) if (!v.optimized && v.status !== 'processing') { v.status = 'processing'; v.reopt = true; enqueueOpt(v.id); n++; }
+  changed(); res.json({ ok: true, count: n });
+});
+app.get('/api/admin/system', (_, res) => res.json({ ffmpeg: ffmpegOk, queue: optQueue.length + (optBusy ? 1 : 0) }));
+app.get('/api/admin/backups', (_, res) => res.json(listBackups()));
+app.post('/api/admin/backups', (_, res) => { try { res.json({ ok: true, name: backupNow('manuel') }); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.get('/api/admin/backups/:name/download', (req, res) => {
+  if (!BACKUP_NAME.test(req.params.name)) return res.status(400).send('geçersiz ad');
+  res.download(path.join(BACKUP_DIR, req.params.name));
+});
+app.post('/api/admin/backups/:name/restore', (req, res) => {
+  if (!BACKUP_NAME.test(req.params.name)) return res.status(400).json({ error: 'geçersiz ad' });
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(BACKUP_DIR, req.params.name), 'utf8'));
+    if (!parsed || !Array.isArray(parsed.videos)) throw new Error('yedek dosyası geçerli değil');
+    backupNow('geri-yukleme-oncesi');
+    db = { ...db, ...parsed };
+    const missing = db.videos.filter(v => !fs.existsSync(path.join(UPLOAD_DIR, v.file))).length;
+    changed();
+    res.json({ ok: true, missingFiles: missing });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
   if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
@@ -459,7 +566,11 @@ app.put('/api/admin/leagues', (req, res) => {
   refreshMatches(); refreshStandings();
 });
 app.post('/api/admin/videos', upload.array('files'), (req, res) => {
-  for (const f of req.files) db.videos.push({ id: uid(), file: f.filename, name: f.originalname, type: f.mimetype.startsWith('image/') ? 'image' : 'video' });
+  for (const f of req.files) {
+    const rec = { id: uid(), file: f.filename, name: f.originalname, type: f.mimetype.startsWith('image/') ? 'image' : 'video', status: 'processing' };
+    db.videos.push(rec);
+    enqueueOpt(rec.id); // yeni yükleme optimize edilene kadar ekranda gösterilmez
+  }
   changed(); res.json({ ok: true });
 });
 app.delete('/api/admin/videos/:id', (req, res) => {

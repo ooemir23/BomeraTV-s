@@ -116,11 +116,8 @@ position:absolute;top:.8vh;right:.8vw}
 #rrow{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);padding-top:.9vh}
 #rrow div{text-align:center;border-right:1px solid var(--line)}
 #rrow div:last-child{border:0}
-#rrow2{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);padding-top:.8vh;margin-top:.8vh}
-#rrow2 div{text-align:center;border-right:1px solid var(--line)}
-#rrow2 div:last-child{border:0}
-#rrow2 small{display:block;font-size:1.1vh;letter-spacing:.22em;color:var(--accent2);font-weight:600}
-#rrow2 strong{font-size:2.1vh;font-weight:600;white-space:nowrap}
+#rrow.swap{transition:opacity .4s}
+#rrow.swap.out{opacity:0}
 .chg{font-style:normal;font-weight:700;letter-spacing:0;margin-left:.35vw;font-size:1.05vh}
 .chg.up{color:#3ecf4a}.chg.dn{color:#ff6b6b}.chg.fl{color:var(--mute)}
 #rrow small{display:block;font-size:1.1vh;letter-spacing:.22em;color:var(--accent2);font-weight:600}
@@ -567,6 +564,16 @@ let lastRates = {}, lastWeather = null;
 const WMO = c => c === 0 ? ['Açık', '☀️', '🌙'] : c <= 2 ? ['Parçalı bulutlu', '⛅', '☁️'] : c === 3 ? ['Kapalı', '☁️', '☁️']
   : c <= 48 ? ['Sisli', '🌫️', '🌫️'] : c <= 57 ? ['Çisenti', '🌦️', '🌦️'] : c <= 67 ? ['Yağmurlu', '🌧️', '🌧️']
   : c <= 77 ? ['Karlı', '❄️', '❄️'] : c <= 82 ? ['Sağanak', '🌧️', '🌧️'] : c <= 86 ? ['Kar sağanağı', '❄️', '❄️'] : ['Gök gürültülü', '⛈️', '⛈️'];
+let rateSets = [], rateIdx = 0, rateTimer = null;
+function startRateSwap() { // 8 sn'de bir USD/EUR/ALTIN ile BIST 100/BITCOIN/STERLİN arasında geçiş
+  if (rateTimer) return;
+  rateTimer = setInterval(() => {
+    const row = document.getElementById('rrow');
+    if (!row || rateSets.length < 2) return;
+    row.classList.add('out');
+    setTimeout(() => { rateIdx++; const r2 = document.getElementById('rrow'); if (r2) { r2.innerHTML = rateSets[rateIdx % rateSets.length]; r2.classList.remove('out'); } }, 420);
+  }, 8000);
+}
 // günlük değişim: ▲ yeşil, ▼ kırmızı
 const chg = v => (v == null || !isFinite(v)) ? '' : `<em class="chg ${v > 0.005 ? 'up' : v < -0.005 ? 'dn' : 'fl'}">${v > 0.005 ? '▲' : v < -0.005 ? '▼' : '•'}${Math.abs(v).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</em>`;
 function renderPanel() {
@@ -580,9 +587,12 @@ function renderPanel() {
       <div class="wd"><b>${txt}</b><small>His. ${Math.round(w.feels)}° · ${Math.round(w.wind)} km/s</small></div>
       <div class="city">İstanbul<small>${Math.round(w.min)}° / ${Math.round(w.max)}°</small></div></div>`;
   }
-  document.getElementById('rates').innerHTML = wx +
-    `<div id="rrow"><div><small>USD</small><strong>${f(r.usd)}<i>₺</i></strong></div><div><small>EUR</small><strong>${f(r.eur)}<i>₺</i></strong></div><div><small>ALTIN${chg(r.goldCh)}</small><strong>${f(r.gold, 0)}<i>₺</i></strong></div></div>` +
-    `<div id="rrow2"><div><small>BIST 100${chg(r.bistCh)}</small><strong>${f(r.bist, 0)}</strong></div><div><small>BITCOIN${chg(r.btcCh)}</small><strong>${r.btc ? '$' + f(r.btc, 0) : '--'}</strong></div></div>`;
+  rateSets = [
+    `<div><small>USD</small><strong>${f(r.usd)}<i>₺</i></strong></div><div><small>EUR</small><strong>${f(r.eur)}<i>₺</i></strong></div><div><small>ALTIN${chg(r.goldCh)}</small><strong>${f(r.gold, 0)}<i>₺</i></strong></div>`,
+    `<div><small>BIST 100${chg(r.bistCh)}</small><strong>${f(r.bist, 0)}</strong></div><div><small>BITCOIN${chg(r.btcCh)}</small><strong>${r.btc ? '$' + f(r.btc, 0) : '--'}</strong></div><div><small>STERLİN</small><strong>${f(r.gbp)}<i>₺</i></strong></div>`,
+  ];
+  document.getElementById('rates').innerHTML = wx + `<div id="rrow" class="swap">${rateSets[rateIdx % rateSets.length]}</div>`;
+  startRateSwap();
 }
 function setRates(r) { lastRates = r; renderPanel(); }
 function setWeather(w) { lastWeather = w; renderPanel(); }

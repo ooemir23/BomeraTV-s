@@ -114,6 +114,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <button class="nav" data-tab="media"><span class="ic">🎞</span>Medya<span class="badge" id="b-media">0</span></button>
   <button class="nav" data-tab="matches"><span class="ic">⚽</span>Maçlar<span class="badge" id="b-matches">0</span></button>
   <button class="nav" data-tab="qr"><span class="ic">▣</span>QR Kod<span class="badge" id="b-qr">0</span></button>
+  <button class="nav" data-tab="backup"><span class="ic">⛁</span>Yedekler</button>
   <button class="nav" data-tab="info"><span class="ic">ⓘ</span>Bilgi Sayfaları</button>
   <button class="nav" data-tab="reviews"><span class="ic">★</span>Yorumlar<span class="badge" id="b-reviews">0</span></button>
   <button class="nav" data-tab="bday"><span class="ic">🎂</span>Doğum Günü<span class="badge" id="b-bday">0</span></button>
@@ -171,6 +172,11 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div id="drop"><b>Dosyaları buraya sürükleyin</b><span>ya da tıklayıp seçin · video ve fotoğraf (birden fazla seçebilirsiniz)</span></div>
     <input type="file" id="files" accept="video/*,image/*" multiple hidden>
     <div id="uploads"></div>
+  </div>
+  <div class="card">
+    <h2>Otomatik Optimizasyon</h2>
+    <p class="hint">Yüklenen her video ve fotoğraf sunucuda otomatik küçültülür: videolar en fazla <b>1080p, 30 kare/sn, yaklaşık 6 Mbps</b> (H.264, sessiz, hızlı başlayan biçim), fotoğraflar en fazla <b>1920 piksel</b>. Böylece Android kutusu takılmadan oynatır ve dosyalar çok daha az yer tutar. Yeni yüklenen dosya optimize edilene kadar TV'de gösterilmez (genelde birkaç dakika).</p>
+    <div class="row" style="align-items:center"><button class="btn" onclick="optimizeAll()">Mevcut medyayı optimize et</button><span id="optstat" style="color:var(--mute);font-size:13px"></span></div>
   </div>
   <div class="card">
     <h2>Gösterim Sırası</h2><p class="hint">Sıra soldan sağa, yukarıdan aşağıya doğrudur ve sürekli döner. Okları kullanarak sırayı değiştirebilirsiniz.</p>
@@ -246,6 +252,17 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div style="margin-top:14px"><button class="btn" onclick="addQr()">QR kodu ekle</button></div>
   </div>
   <div class="card"><h2>Mevcut QR Kodlar</h2><div id="qr-list" style="margin-top:12px"></div></div>
+</section>
+
+<!-- YEDEKLER -->
+<section id="sec-backup">
+  <h1>Yedekler</h1><p class="sub">Ayarlarınızın (yorumlar, QR kodlar, liste sırası, doğum günleri, lig seçimi vb.) yedeği.</p>
+  <div class="card">
+    <h2>Veritabanı Yedeği</h2>
+    <p class="hint">Her gün sabah 04:00'ten sonra otomatik, ayrıca elle ve bir geri yüklemeden hemen önce yedek alınır; en yeni 30 yedek saklanır. <b>Önemli:</b> yedekler sunucunun kendi diskinde durur. Sunucu tamamen kaybolursa bunlar da gider, bu yüzden arada bir <b>İndir</b> düğmesiyle kendi bilgisayarınıza kaydedin. <b>Yüklediğiniz videolar ve fotoğraflar bu yedeğe dahil değildir</b> (yalnızca ayarlar); medya dosyaları için sunucu sağlayıcınızdan (Hetzner) otomatik sunucu yedeği açmanızı öneririm.</p>
+    <div class="row"><button class="btn" onclick="backupNow()">Şimdi yedek al</button></div>
+    <div id="backups" style="margin-top:16px"></div>
+  </div>
 </section>
 
 <!-- BİLGİ SAYFALARI -->
@@ -373,7 +390,7 @@ function uploadOne(f) {
     const fd = new FormData(); fd.append('files', f);
     const x = new XMLHttpRequest(); x.open('POST', '/api/admin/videos');
     x.upload.onprogress = e => { if (e.lengthComputable) row.querySelector('i').style.width = (e.loaded / e.total * 100) + '%'; };
-    x.onload = () => { x.status < 300 ? toast(f.name + ' yüklendi') : toast(f.name + ' yüklenemedi', true); setTimeout(() => row.remove(), 800); resolve(); };
+    x.onload = () => { x.status < 300 ? toast(f.name + ' yüklendi, optimize ediliyor…') : toast(f.name + ' yüklenemedi', true); setTimeout(() => row.remove(), 800); resolve(); };
     x.onerror = () => { toast(f.name + ' yüklenemedi', true); row.remove(); resolve(); };
     x.send(fd);
   });
@@ -382,8 +399,8 @@ function renderMedia() {
   const list = db.videos || [];
   $('media-list').innerHTML = list.length ? '<div id="media">' + list.map((v, i) => `<div class="tile">
     <div class="thumb">${v.type === 'image' ? `<img src="/uploads/${v.file}" loading="lazy">` : `<video src="/uploads/${v.file}#t=0.5" preload="metadata" muted></video>`}
-      <span class="no">${i + 1}</span><span class="ty">${v.type === 'image' ? '🖼 Fotoğraf' : '🎬 Video'}</span></div>
-    <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>
+      <span class="no">${i + 1}</span><span class="ty">${v.status === 'processing' ? (v.reopt ? '⚙ Küçültülüyor' : '⚙ Optimize ediliyor') : v.type === 'image' ? '🖼 Fotoğraf' : '🎬 Video'}</span></div>
+    <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>${v.status === 'processing' ? '<div class="nm" style="color:var(--accent2);font-size:12px">' + (v.reopt ? 'Oynamaya devam ediyor' : 'TV\'de henüz gösterilmiyor') + '</div>' : v.sizeBefore ? `<div class="nm" style="color:var(--mute);font-size:12px">${fmtMB(v.sizeBefore)} → ${fmtMB(v.sizeAfter || v.sizeBefore)}</div>` : v.optError ? `<div class="nm" style="color:var(--bad);font-size:12px" title="${esc(v.optError)}">Optimize edilemedi (orijinal kullanılıyor)</div>` : ''}
       <div class="act"><button class="btn ghost sm" ${i === 0 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">← Öne</button>
       <button class="btn ghost sm" ${i === list.length - 1 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'down'})">Sona →</button>
       <button class="btn danger sm" onclick="del('/videos/${v.id}','${esc(v.name).replace(/'/g, '')}')">Sil</button></div></div></div>`).join('') + '</div>'
@@ -460,6 +477,39 @@ async function testTraffic() {
       ? `✅ Çalışıyor: İstanbul %${j.all}, Avrupa %${j.europe}, Anadolu %${j.asia} <span style="opacity:.7">(Cloudflare sunucusu: ${esc(j.colo || '?')})</span>. TV'de yüzde çubuğu görünecek.`
       : `❌ Worker çalışıyor ama İBB'den veri alamadı (Cloudflare sunucusu: ${esc(j.colo || '?')}, hata: ${esc(j.error || r.status)}). Bu bağlantıdan İBB'ye erişilemiyor, yüzde gösterilemez.`;
   } catch (e) { out.textContent = '❌ Worker adresine ulaşılamadı: ' + e.message; }
+}
+
+/* yedekler + optimizasyon */
+const fmtMB = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+async function loadBackups() {
+  try {
+    const list = await (await fetch('/api/admin/backups')).json();
+    const fmt = t => new Date(t).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const kind = n => n.endsWith('-oto.json') ? 'Otomatik' : n.endsWith('-manuel.json') ? 'Elle' : n.includes('geri-yukleme') ? 'Geri yüklemeden önce' : '';
+    $('backups').innerHTML = list.length ? list.map(b => `<div class="item"><div class="body"><b>${esc(fmt(b.time))}</b><span>${kind(b.name)} · ${fmtMB(b.size)}</span></div>
+      <a class="btn ghost sm" style="text-decoration:none" href="/api/admin/backups/${encodeURIComponent(b.name)}/download">İndir</a>
+      <button class="btn danger sm" onclick="restoreBackup('${esc(b.name)}','${esc(fmt(b.time))}')">Geri yükle</button></div>`).join('') : '<div class="empty">Henüz yedek yok.</div>';
+  } catch (e) {}
+}
+async function backupNow() { if (await api('POST', '/backups', undefined, 'Yedek alındı')) loadBackups(); }
+async function restoreBackup(name, when) {
+  if (!confirm(`Ayarlar ${when} tarihli yedeğe geri döndürülsün mü?\n\nŞu anki ayarlar önce otomatik yedeklenir, sonra bu yedek yüklenir.`)) return;
+  try {
+    const r = await fetch('/api/admin/backups/' + encodeURIComponent(name) + '/restore', { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    toast(j.missingFiles ? `Geri yüklendi. Dikkat: ${j.missingFiles} medya dosyası sunucuda bulunamadı.` : 'Yedek geri yüklendi', !!j.missingFiles);
+    await load(); loadBackups();
+  } catch (e) { toast(e.message, true); }
+}
+async function optimizeAll() {
+  const r = await fetch('/api/admin/media/optimize-all', { method: 'POST' }); const j = await r.json();
+  toast(j.count ? `${j.count} dosya optimize kuyruğuna alındı (oynamaya devam eder)` : 'Tüm dosyalar zaten optimize edilmiş'); load();
+}
+let procTimer;
+function pollProcessing() {
+  clearTimeout(procTimer);
+  if ((db.videos || []).some(v => v.status === 'processing')) procTimer = setTimeout(load, 4000);
 }
 
 /* bilgi sayfaları */
@@ -561,12 +611,19 @@ function counts() {
   $('b-reviews').textContent = $('s-reviews').textContent = rev;
   $('b-bday').textContent = $('s-bday').textContent = sel;
 }
+async function loadSystem() {
+  try {
+    const s = await (await fetch('/api/admin/system')).json();
+    $('optstat').textContent = s.ffmpeg ? (s.queue ? `Sırada ${s.queue} dosya işleniyor…` : 'Hazır') : '⚠ Sunucuda optimizasyon aracı (ffmpeg) bulunamadı; dosyalar olduğu gibi kullanılır.';
+  } catch (e) {}
+}
 async function load() {
+  loadSystem();
   const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
   $('inset').value = db.safeInset || 0; $('insetval').textContent = db.safeInset || 0; $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
-  renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
+  loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
 </script></body></html>
