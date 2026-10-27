@@ -5,10 +5,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 :root{--bg:#161818;--panel:#1f2222;--panel2:#262a2a;--line:rgba(255,255,255,.09);--text:#f4f1ea;--mute:#9aa0a0;--accent:#906538;--accent2:#c9955c;--ok:#3ecf4a;--bad:#ee5b4f}
 *{box-sizing:border-box;margin:0}
-body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+html{zoom:var(--z,1)}
+body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:calc(100vh / var(--z,1));display:flex}
 button,input,select,textarea{font:inherit;color:inherit}
 /* kenar menü */
-#side{width:230px;flex:none;background:#101212;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+#side{width:230px;flex:none;background:#101212;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:calc(100vh / var(--z,1))}
 #brand{padding:6px 8px 18px}
 #brand img{width:100%;border-radius:8px;display:block}
 #brand small{display:block;margin-top:10px;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent2);text-align:center}
@@ -19,8 +20,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 .nav .badge{margin-left:auto;background:rgba(255,255,255,.1);border-radius:20px;padding:1px 9px;font-size:12px}
 #sidefoot{margin-top:auto;font-size:12px;color:var(--mute);padding:8px}
 #sidefoot a{color:var(--accent2);text-decoration:none}
+#zoomctl{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+#zoomctl button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);cursor:pointer;padding:4px 10px;font-weight:700}
+#zoomctl button:hover{border-color:var(--accent2)}
+#zoomctl span{flex:1;text-align:center;color:var(--text);font-size:12px}
 /* içerik */
-main{flex:1;min-width:0;padding:30px 36px 80px;max-width:1200px}
+main{flex:1;min-width:0;padding:30px 36px 80px;max-width:1500px}
 h1{font-size:26px;font-weight:600;margin-bottom:4px}
 .sub{color:var(--mute);font-size:14px;margin-bottom:26px}
 section{display:none}
@@ -118,7 +123,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <button class="nav" data-tab="info"><span class="ic">ⓘ</span>Bilgi Sayfaları</button>
   <button class="nav" data-tab="reviews"><span class="ic">★</span>Yorumlar<span class="badge" id="b-reviews">0</span></button>
   <button class="nav" data-tab="bday"><span class="ic">🎂</span>Doğum Günü<span class="badge" id="b-bday">0</span></button>
-  <div id="sidefoot"><a href="/" target="_blank">TV ekranını aç ↗</a></div>
+  <div id="sidefoot"><div id="zoomctl"><button onclick="zoomBy(-0.1)" title="Küçült">A−</button><span id="zoomval">Otomatik</span><button onclick="zoomBy(0.1)" title="Büyüt">A+</button></div><a href="#" onclick="zoomAuto();return false" style="display:block;margin-bottom:8px;font-size:11px">Otomatik boyuta dön</a><a href="/" target="_blank">TV ekranını aç ↗</a></div>
 </aside>
 <main>
 
@@ -359,6 +364,18 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
 <div id="toasts"></div>
 <script>
 const $ = id => document.getElementById(id);
+/* ekran ölçeği: genişliğe göre otomatik (geniş ekranda büyür), A−/A+ ile elle ayarlanır */
+function autoZoom() { return Math.round(Math.min(1.6, Math.max(1, innerWidth / 1300)) * 20) / 20; }
+function curZoom() { const v = Number(localStorage.getItem('adminZoom')); return v >= 0.8 && v <= 2.2 ? v : autoZoom(); }
+function applyZoom() {
+  const z = curZoom();
+  document.documentElement.style.setProperty('--z', z);
+  const el = document.getElementById('zoomval'); if (el) el.textContent = localStorage.getItem('adminZoom') ? Math.round(z * 100) + '%' : 'Otomatik (' + Math.round(z * 100) + '%)';
+  if (typeof scalePv === 'function') setTimeout(scalePv, 50);
+}
+function zoomBy(d) { localStorage.setItem('adminZoom', String(Math.round(Math.max(0.8, Math.min(2.2, curZoom() + d)) * 20) / 20)); applyZoom(); }
+function zoomAuto() { localStorage.removeItem('adminZoom'); applyZoom(); }
+applyZoom(); addEventListener('resize', () => { if (!localStorage.getItem('adminZoom')) applyZoom(); });
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let db = {}, pub = {}, L = { catalog: [], enabled: [] }, times = [], timesDirty = false;
 const DEFAULTS = ['uefa.champions','uefa.europa','tur.1','tur.2','esp.1','eng.1','ita.1','ger.1','fra.1'];
