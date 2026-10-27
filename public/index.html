@@ -315,14 +315,13 @@ function loadTraffic() {
   const f = document.querySelector('#traffic iframe');
   f.src = TRAFFIC_URL; trafficLoaded = Date.now();
 }
-let mapOn = false;
-function ensureMap(on) { // hafif modda harita yalnızca gösterilmeden hemen önce yüklenir, sonra boşaltılır
-  const f = document.querySelector('#traffic iframe');
-  if (on && !mapOn) { f.src = TRAFFIC_URL; mapOn = true; trafficLoaded = Date.now(); }
-  else if (!on && mapOn) { f.src = 'about:blank'; mapOn = false; }
-}
-if (!window.__lite) loadTraffic();
-setInterval(() => { if (!window.__lite && pages[page] && pages[page].type !== 'traffic') loadTraffic(); }, 4 * 60 * 1000);
+// Harita sayfa açılır açılmaz (video başlamasına engel olmasın diye 3 sn sonra) yüklenir ve açık kalır; böylece harita sayfası geldiğinde hazırdır.
+// Yenileme (trafik katmanını güncel tutmak için) yalnızca harita görünmüyorken ve sıradaki sayfa da harita değilken yapılır.
+setTimeout(loadTraffic, 3000);
+setInterval(() => {
+  const nx = pages[(page + 1) % Math.max(1, pages.length)];
+  if (pages[page] && pages[page].type !== 'traffic' && !(nx && nx.type === 'traffic')) loadTraffic();
+}, 4 * 60 * 1000);
 function render() {
   const list = document.getElementById('list'), tr = document.getElementById('traffic'), dots = document.getElementById('dots');
   if (!window.fitted) { fit(); window.fitted = true; }
@@ -336,7 +335,6 @@ function render() {
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
   else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
-  if (window.__lite) ensureMap(pg.type === 'traffic' || (pages[(page + 1) % pages.length] || {}).type === 'traffic');
   dots.innerHTML = pages.length > 6 ? `<span class="cnt">${page + 1} / ${pages.length}</span>` : pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
 }
 function tick() {
@@ -431,7 +429,7 @@ function setTicker(list) {
 function setState(s) {
   const ids = s.videos.map(x => x.id).join();
   const changed = ids !== videos.map(x => x.id).join();
-  if ((s.fxMode || 'auto') !== window.__fx) { window.__fx = s.fxMode || 'auto'; window.__applyFx(); if (window.__lite) ensureMap(false); }
+  if ((s.fxMode || 'auto') !== window.__fx) { window.__fx = s.fxMode || 'auto'; window.__applyFx(); }
   videos = s.videos; imageSeconds = s.imageSeconds || 10;
   if (changed) { prepared = { id: null }; const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
   if (current === null && videos.length) play();
