@@ -35,7 +35,7 @@ section.on{display:block}
 .stat b{display:block;font-size:30px;font-weight:700;color:var(--accent2)}
 .stat span{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 /* form öğeleri */
-input[type=text],input[type=number],input[type=time],select,textarea{background:#151717;border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;width:100%}
+input[type=text],input[type=password],input[type=number],input[type=time],select,textarea{background:#151717;border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;width:100%}
 input:focus,select:focus,textarea:focus{border-color:var(--accent2)}
 textarea{resize:vertical}
 label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-spacing:.05em}
@@ -114,6 +114,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <button class="nav" data-tab="media"><span class="ic">🎞</span>Medya<span class="badge" id="b-media">0</span></button>
   <button class="nav" data-tab="matches"><span class="ic">⚽</span>Maçlar<span class="badge" id="b-matches">0</span></button>
   <button class="nav" data-tab="qr"><span class="ic">▣</span>QR Kod<span class="badge" id="b-qr">0</span></button>
+  <button class="nav" data-tab="info"><span class="ic">ⓘ</span>Bilgi Sayfaları</button>
   <button class="nav" data-tab="reviews"><span class="ic">★</span>Yorumlar<span class="badge" id="b-reviews">0</span></button>
   <button class="nav" data-tab="bday"><span class="ic">🎂</span>Doğum Günü<span class="badge" id="b-bday">0</span></button>
   <div id="sidefoot"><a href="/" target="_blank">TV ekranını aç ↗</a></div>
@@ -245,6 +246,34 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div style="margin-top:14px"><button class="btn" onclick="addQr()">QR kodu ekle</button></div>
   </div>
   <div class="card"><h2>Mevcut QR Kodlar</h2><div id="qr-list" style="margin-top:12px"></div></div>
+</section>
+
+<!-- BİLGİ SAYFALARI -->
+<section id="sec-info">
+  <h1>Bilgi Sayfaları</h1><p class="sub">Sağ panelde dönen nöbetçi eczane ve "tarihte bugün" sayfaları, ve verilerin ne kadar güncel olduğu.</p>
+  <div class="card">
+    <h2>Nöbetçi Eczaneler</h2>
+    <p class="hint">Nöbetçi eczane listesini bir veri servisinden (CollectAPI) alır; <b>servis için API anahtarı gerekir</b> (collectapi.com'da ücretsiz kayıt, sonra "Nöbetçi Eczane" servisine abone olun; ücretsiz kota ve koşulları kendi sayfasından kontrol edin). Liste, nöbet günü başına <b>bir kez</b> çekilir (nöbet sabah 09:00'da değişir), gün içinde tekrar istek yapılmaz. Eski güne ait liste ekranda gösterilmez. Kafenin bulunduğu ilçeyi (gerekirse yan ilçeleri) yazın.</p>
+    <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="phen" onchange="savePharm()"><i></i></label><div class="body"><b>Nöbetçi eczane sayfasını ekranda göster</b></div></div>
+    <div class="row">
+      <div class="fld" style="max-width:180px"><label class="f">İl</label><input type="text" id="phil" value="İstanbul"></div>
+      <div class="fld"><label class="f">İlçe(ler), virgülle (en fazla 6)</label><input type="text" id="phdist" placeholder="örn. Kadıköy, Üsküdar"></div>
+      <div class="fld"><label class="f">API anahtarı</label><input type="password" id="phkey" autocomplete="off" placeholder="CollectAPI anahtarı"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn" onclick="savePharm(true)">Kaydet</button><button class="btn ghost" onclick="testPharm()">Test et</button></div>
+    <p id="phres" class="hint" style="margin:12px 0 0"></p>
+  </div>
+  <div class="card">
+    <h2>Tarihte Bugün</h2>
+    <p class="hint">Vikipedi'den (Türkçe) bugünün tarihinde yaşanmış 6 olay. Anahtar gerekmez, günde bir kez çekilir.</p>
+    <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="otden" onchange="api('PUT','/options',{showOnThisDay:this.checked},this.checked?'Tarihte bugün açıldı':'Tarihte bugün kapatıldı')"><i></i></label><div class="body"><b>Tarihte bugün sayfasını ekranda göster</b></div></div>
+    <div id="otdlist"></div>
+  </div>
+  <div class="card">
+    <h2>Veri Güncelliği</h2>
+    <p class="hint">Her veri kendi süresine göre yenilenir ve diske kaydedilir; sunucu yeniden başlasa bile elde son bilgi olur. Boşuna sorgu yapılmaz.</p>
+    <div id="freshness"></div>
+  </div>
 </section>
 
 <!-- YORUMLAR -->
@@ -433,6 +462,37 @@ async function testTraffic() {
   } catch (e) { out.textContent = '❌ Worker adresine ulaşılamadı: ' + e.message; }
 }
 
+/* bilgi sayfaları */
+function renderInfo() {
+  const c = db.pharmacy || {};
+  $('phen').checked = c.enabled !== false; $('phil').value = c.il || 'İstanbul'; $('phdist').value = (c.districts || []).join(', '); $('phkey').value = c.key || '';
+  $('otden').checked = db.showOnThisDay !== false;
+  const o = pub.onThisDay;
+  $('otdlist').innerHTML = o && o.items.length ? o.items.map(e => `<div class="item"><b style="color:var(--accent2);min-width:56px">${esc(e.year)}</b><div class="body"><span style="white-space:normal;color:var(--text)">${esc(e.text)}</span></div></div>`).join('') : '<div class="empty">Bugünün listesi henüz alınmadı.</div>';
+  loadFresh();
+}
+async function loadFresh() {
+  try {
+    const f = await (await fetch('/api/admin/cache')).json();
+    const ago = m => m == null ? '—' : m < 1 ? 'az önce' : m < 60 ? m + ' dk önce' : Math.round(m / 60) + ' saat önce';
+    const rows = [['Hava durumu', ago(f.hava), 'her 30 dk'], ['Döviz (USD/EUR)', ago(f.doviz), 'saatte bir'], ['Altın', ago(f.altin), 'her 15 dk'], ['Maç listesi', ago(f.maclar), 'canlıda 25 sn, yaklaşan maçta 2 dk, aksi 10 dk'],
+      ['Tarihte bugün', f.tarihteBugun || '—', 'günde bir'],
+      ['Nöbetçi eczane', f.nobetci ? `${f.nobetci.adet} eczane · nöbet günü ${f.nobetci.duty}${f.nobetci.guncel ? '' : ' (ESKİ, gösterilmiyor)'}` : '—', 'nöbet günü başına bir'],
+      ['Puan durumu', Object.keys(f.puanDurumu || {}).length ? Object.entries(f.puanDurumu).map(([k, v]) => k + ': ' + ago(v)).join(' · ') : '—', '6 saatte bir ya da maç bitince']];
+    $('freshness').innerHTML = rows.map(r => `<div class="item"><div class="body"><b>${esc(r[0])}</b><span style="white-space:normal">${esc(r[1])}</span></div><span style="color:var(--mute);font-size:12px">${esc(r[2])}</span></div>`).join('') + (f.nobetciHata ? `<p class="hint" style="color:var(--bad)">Nöbetçi eczane hatası: ${esc(f.nobetciHata)}</p>` : '');
+  } catch (e) {}
+}
+const parseDist = () => $('phdist').value.split(',').map(x => x.trim()).filter(Boolean).slice(0, 6);
+function savePharm(manual) { return api('PUT', '/pharmacy', { enabled: $('phen').checked, il: $('phil').value.trim(), districts: parseDist(), key: $('phkey').value.trim() }, manual ? 'Eczane ayarları kaydedildi' : ($('phen').checked ? 'Eczane sayfası açıldı' : 'Eczane sayfası kapatıldı')); }
+async function testPharm() {
+  const out = $('phres'); out.textContent = 'Deneniyor…';
+  try {
+    const r = await fetch('/api/admin/pharmacy/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: $('phkey').value.trim(), il: $('phil').value.trim(), districts: parseDist() }) });
+    const j = await r.json();
+    out.innerHTML = r.ok ? `✅ Çalışıyor: ${j.count} nöbetçi eczane bulundu${j.sample[0] ? ` (örn. ${esc(j.sample[0].name)})` : ''}. Ayarı kaydetmeyi unutmayın.` : '❌ ' + esc(j.error || r.status);
+  } catch (e) { out.textContent = '❌ ' + e.message; }
+}
+
 /* kanallar + puan durumu */
 function renderChannels() {
   $('showst').checked = db.showStandings !== false;
@@ -506,7 +566,7 @@ async function load() {
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
   $('inset').value = db.safeInset || 0; $('insetval').textContent = db.safeInset || 0; $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
-  renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
+  renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
 </script></body></html>

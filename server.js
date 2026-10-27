@@ -16,9 +16,20 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] } };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+
+// ---- Diske yazılan önbellek: yeniden başlatmada elde veri olur, her veri kendi süresine göre yenilenir ----
+const CACHE_FILE = path.join(DATA_DIR, 'cache.json');
+let cache = {};
+try { cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8')); } catch (e) { /* ilk açılış */ }
+let cacheTimer;
+const cacheSave = () => { clearTimeout(cacheTimer); cacheTimer = setTimeout(() => fs.writeFile(CACHE_FILE, JSON.stringify(cache), () => {}), 1500); };
+const cacheAge = key => (cache[key] ? Date.now() - cache[key].at : Infinity);
+const cacheGet = key => (cache[key] ? cache[key].data : null);
+const cachePut = (key, data) => { cache[key] = { at: Date.now(), data }; cacheSave(); };
+const MIN = 60 * 1000, HOUR = 60 * MIN;
 
 let traffic = null; // İBB trafik endeksi: Türkiye'den bağlanan tarayıcıların Worker üzerinden aldığı, Worker'ın imzaladığı değerler
 const crypto = require('crypto');
@@ -28,8 +39,9 @@ function trafficSecret() {
   return db.trafficSecret;
 }
 
-let weather = null;
+let weather = cacheGet('weather');
 async function refreshWeather() {
+  if (weather && cacheAge('weather') < 30 * MIN) return; // taze, tekrar sorma
   try {
     const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.01&longitude=28.98&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FIstanbul&forecast_days=1');
     const j = await r.json();
@@ -38,29 +50,36 @@ async function refreshWeather() {
       wind: j.current.wind_speed_10m, day: !!j.current.is_day,
       max: j.daily.temperature_2m_max[0], min: j.daily.temperature_2m_min[0],
     };
+    cachePut('weather', weather);
     broadcast({ type: 'weather', weather });
   } catch (e) { console.error('Hava durumu alınamadı:', e.message); }
 }
 refreshWeather();
-setInterval(refreshWeather, 15 * 60 * 1000);
+setInterval(refreshWeather, 10 * MIN); // kontrol sıklığı; ağa yalnızca 30 dk'dan eskiyse gidilir
 
-let rates = { usd: null, eur: null, gold: null, updated: null };
+let rates = cacheGet('rates') || { usd: null, eur: null, gold: null, updated: null };
 async function refreshRates() {
-  try {
-    const r = await fetch('https://open.er-api.com/v6/latest/USD');
-    const j = await r.json();
-    const t = j.rates.TRY;
-    rates = { ...rates, usd: t, eur: t / j.rates.EUR, updated: new Date().toISOString() };
-    broadcast({ type: 'rates', rates });
-  } catch (e) { console.error('Kur alınamadı:', e.message); }
-  try {
-    const g = await (await fetch('https://finans.truncgil.com/v4/today.json')).json();
-    rates = { ...rates, gold: Number(g.GRA.Selling) };
-    broadcast({ type: 'rates', rates });
-  } catch (e) { console.error('Altın alınamadı:', e.message); if (!rates.gold) setTimeout(refreshRates, 30 * 1000); }
+  if (cacheAge('rates:fx') > 60 * MIN) { // döviz kaynağı günde bir güncellenir; saatte bir sormak yeter
+    try {
+      const r = await fetch('https://open.er-api.com/v6/latest/USD');
+      const j = await r.json();
+      const t = j.rates.TRY;
+      rates = { ...rates, usd: t, eur: t / j.rates.EUR, updated: new Date().toISOString() };
+      cachePut('rates:fx', true); cachePut('rates', rates);
+      broadcast({ type: 'rates', rates });
+    } catch (e) { console.error('Kur alınamadı:', e.message); }
+  }
+  if (cacheAge('rates:gold') > 15 * MIN) {
+    try {
+      const g = await (await fetch('https://finans.truncgil.com/v4/today.json')).json();
+      rates = { ...rates, gold: Number(g.GRA.Selling) };
+      cachePut('rates:gold', true); cachePut('rates', rates);
+      broadcast({ type: 'rates', rates });
+    } catch (e) { console.error('Altın alınamadı:', e.message); if (!rates.gold) setTimeout(refreshRates, 30 * 1000); }
+  }
 }
 refreshRates();
-setInterval(refreshRates, 10 * 60 * 1000);
+setInterval(refreshRates, 5 * MIN); // kontrol sıklığı; ağa süre dolunca gidilir
 
 const CATALOG = [
   ['tur.1', 'Süper Lig', 'Türkiye'], ['tur.2', 'TFF 1. Lig', 'Türkiye'],
@@ -82,20 +101,25 @@ const CATALOG = [
 const DEFAULT_LEAGUES = ['uefa.champions', 'uefa.europa', 'tur.1', 'tur.2', 'esp.1', 'eng.1', 'ita.1', 'ger.1', 'fra.1'];
 const NO_TABLE = new Set(['eng.fa', 'fifa.world']);
 const standings = new Map(); // code -> satırlar
+for (const k of Object.keys(cache)) if (k.startsWith('standings:')) standings.set(k.slice(10), cache[k].data);
+const standingsDirty = new Set(); // maçı biten liglerin kodları: tablo hemen yenilensin
 async function refreshStandings() {
   const targets = CATALOG.filter(([code, , group]) => enabledLeagues().some(([c]) => c === code) && group !== 'Avrupa Kupaları' && !NO_TABLE.has(code));
   await Promise.all(targets.map(async ([code]) => {
+    if (!standingsDirty.has(code) && standings.has(code) && cacheAge('standings:' + code) < 6 * HOUR) return; // taze
     try {
+      standingsDirty.delete(code);
       const r = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${code}/standings`);
       const j = await r.json();
       const ch = j.children || [];
       if (ch.length !== 1) { standings.delete(code); return; } // grup/konferans yapılı veya veri yok
       const num = (e, n) => { const x = e.stats.find(s => s.name === n); return x ? (x.displayValue ?? String(x.value)) : ''; };
-      standings.set(code, ch[0].standings.entries.map(e => ({
+      const rows = ch[0].standings.entries.map(e => ({
         rank: Number(num(e, 'rank')), name: e.team.shortDisplayName || e.team.displayName,
         logo: (e.team.logos || [])[0] ? e.team.logos[0].href : null,
         gp: num(e, 'gamesPlayed'), w: num(e, 'wins'), d: num(e, 'ties'), l: num(e, 'losses'), gd: num(e, 'pointDifferential'), pts: num(e, 'points'),
-      })).sort((a, b) => a.rank - b.rank));
+      })).sort((a, b) => a.rank - b.rank);
+      standings.set(code, rows); cachePut('standings:' + code, rows);
     } catch (err) { console.error('Puan durumu alınamadı', code, err.message); }
   }));
   broadcast({ type: 'state', state: publicState() });
@@ -103,7 +127,9 @@ async function refreshStandings() {
 const enabledLeagues = () => CATALOG.filter(([code]) => (db.leagues || DEFAULT_LEAGUES).includes(code)).map(([code, label]) => [code, label]);
 const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d); // YYYY-MM-DD
 const hm = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
-let autoMatches = [];
+let autoMatches = cacheAge('matches') < 20 * MIN ? (cacheGet('matches') || []) : [];
+const finalSeen = new Set();
+let finalBaseline = false;
 const prevScores = new Map();
 async function refreshMatches() {
   const out = [];
@@ -151,6 +177,17 @@ async function refreshMatches() {
   const seen = new Set();
   const rank = m => (m.live ? 0 : m.final ? 2 : 1);
   autoMatches = out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => rank(a) - rank(b) || a.ts - b.ts);
+  cachePut('matches', autoMatches);
+  // yeni biten maç varsa o ligin puan durumunu birkaç dakika sonra yenile
+  for (const m of autoMatches.filter(x => x.final)) {
+    if (finalSeen.has(m.id)) continue;
+    finalSeen.add(m.id);
+    if (finalBaseline) {
+      const c = CATALOG.find(([, label]) => label === m.league);
+      if (c) { standingsDirty.add(c[0]); setTimeout(refreshStandings, 3 * MIN); setTimeout(refreshStandings, 15 * MIN); }
+    }
+  }
+  finalBaseline = true;
   for (const m of autoMatches) {
     if (!m.live) continue;
     const cur = { h: +m.hs || 0, a: +m.as || 0 }, prev = prevScores.get(m.id);
@@ -166,11 +203,70 @@ async function refreshMatches() {
   broadcast({ type: 'state', state: publicState() });
 }
 refreshStandings();
-setInterval(refreshStandings, 30 * 60 * 1000);
+setInterval(refreshStandings, 20 * MIN); // kontrol sıklığı; ağa 6 saatte bir ya da bir maç bitince gidilir
 (async function loop() {
   await refreshMatches();
-  setTimeout(loop, autoMatches.some(m => m.live) ? 25 * 1000 : 5 * 60 * 1000);
+  // sıklık: canlı maç varsa 25 sn; yakında başlayacak/yeni başlamış maç varsa 2 dk; değilse 10 dk
+  const now = Date.now();
+  const live = autoMatches.some(m => m.live);
+  const soon = autoMatches.some(m => !m.live && !m.final && m.ts - now < 3 * HOUR && m.ts - now > -15 * MIN);
+  setTimeout(loop, live ? 25 * 1000 : soon ? 2 * MIN : 10 * MIN);
 })();
+
+
+// ---- Tarihte bugün (Vikipedi Türkçe): günde bir kez, önbellekli ----
+let onThisDay = cacheGet('onthisday');
+async function refreshOnThisDay() {
+  const today = ymd(new Date());
+  if (onThisDay && onThisDay.date === today) return; // bugünün listesi elde
+  const [, M, D] = today.split('-');
+  try {
+    const r = await fetch(`https://tr.wikipedia.org/api/rest_v1/feed/onthisday/events/${M}/${D}`, { headers: { accept: 'application/json', 'user-agent': 'BomeraTV/1.0 (cafe display)' } });
+    const j = await r.json();
+    const ev = (j.events || []).filter(e => e.year && e.text && e.text.length >= 30 && e.text.length <= 230).sort((a, b) => a.year - b.year);
+    if (!ev.length) throw new Error('liste boş');
+    const n = Math.min(6, ev.length), items = [];
+    for (let i = 0; i < n; i++) items.push(ev[Math.floor(i * ev.length / n)]); // yıllara yayılmış 6 olay
+    onThisDay = { date: today, items: items.map(e => ({ year: e.year, text: e.text })) };
+    cachePut('onthisday', onThisDay);
+    broadcast({ type: 'state', state: publicState() });
+  } catch (e) { console.error('Tarihte bugün alınamadı:', e.message); }
+}
+setTimeout(refreshOnThisDay, 2000);
+setInterval(refreshOnThisDay, 30 * MIN);
+
+// ---- Nöbetçi eczaneler (CollectAPI, anahtar admin panelinden girilir): nöbet günü başına bir kez ----
+const PHARM_BASE = process.env.PHARMACY_BASE || 'https://api.collectapi.com';
+const dutyDay = () => ymd(new Date(Date.now() - 9 * HOUR)); // nöbet sabah 09:00'da değişir
+let pharmacies = cacheGet('pharmacies');
+let pharmError = '';
+const pharmCfg = () => db.pharmacy || {};
+const pharmSig = () => JSON.stringify([pharmCfg().il || 'İstanbul', pharmCfg().districts || []]);
+async function fetchPharmacies(cfg) {
+  const out = [];
+  for (const d of cfg.districts) {
+    const r = await fetch(`${PHARM_BASE}/health/dutyPharmacy?ilce=${encodeURIComponent(d)}&il=${encodeURIComponent(cfg.il || 'İstanbul')}`, { headers: { authorization: 'apikey ' + cfg.key, 'content-type': 'application/json' } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.success === false) throw new Error(j.message || j.error || ('HTTP ' + r.status));
+    for (const p of j.result || []) out.push({ district: p.dist || p.district || d, name: p.name || p.pharmacyName || '', address: p.address || '', phone: p.phone || '' });
+  }
+  return out;
+}
+async function refreshPharmacies(force) {
+  const cfg = pharmCfg();
+  if (!cfg.key || !(cfg.districts || []).length) { if (pharmacies) { pharmacies = null; broadcast({ type: 'state', state: publicState() }); } return; }
+  const duty = dutyDay(), sig = pharmSig();
+  if (!force && pharmacies && pharmacies.duty === duty && pharmacies.sig === sig) return; // bu nöbet günü için elde
+  try {
+    const items = await fetchPharmacies(cfg);
+    pharmacies = { duty, sig, items, updated: new Date().toISOString() };
+    pharmError = '';
+    cachePut('pharmacies', pharmacies);
+    broadcast({ type: 'state', state: publicState() });
+  } catch (e) { pharmError = e.message; console.error('Nöbetçi eczane alınamadı:', e.message); }
+}
+setTimeout(refreshPharmacies, 4000);
+setInterval(refreshPharmacies, 30 * MIN); // ağa yalnızca nöbet günü değişince ya da ayar değişince gidilir
 
 const app = express();
 app.use(express.json());
@@ -196,6 +292,10 @@ const publicState = () => ({
   trafficApi: db.trafficApi || '',
   showQr: db.showQr !== false,
   fxMode: ['auto', 'lite', 'full'].includes(db.fxMode) ? db.fxMode : 'auto',
+  showOnThisDay: db.showOnThisDay !== false,
+  onThisDay: onThisDay && onThisDay.date === ymd(new Date()) ? onThisDay : null,
+  showPharmacy: pharmCfg().enabled !== false,
+  pharmacies: pharmacies && pharmacies.duty === dutyDay() && pharmacies.sig === pharmSig() ? { items: pharmacies.items, districts: pharmCfg().districts || [] } : null, // dünkü nöbet listesi gösterilmez
   safeInset: Math.max(0, Math.min(12, Number(db.safeInset) || 0)),
   safeGuide: !!db.safeGuide,
   qrs: (db.qrs || []).map(({ id, label, svg, side }) => ({ id, label, svg, side: side === 'left' ? 'left' : 'right' })),
@@ -268,9 +368,39 @@ app.delete('/api/admin/qrs/:id', (req, res) => {
   db.qrs = (db.qrs || []).filter(x => x.id !== req.params.id);
   changed(); res.json({ ok: true });
 });
+app.put('/api/admin/pharmacy', (req, res) => {
+  const b = req.body || {}, cur = pharmCfg();
+  const districts = Array.isArray(b.districts) ? b.districts.map(x => String(x).trim()).filter(Boolean).slice(0, 6) : cur.districts;
+  db.pharmacy = {
+    enabled: typeof b.enabled === 'boolean' ? b.enabled : cur.enabled !== false,
+    key: typeof b.key === 'string' ? b.key.trim().slice(0, 120) : cur.key || '',
+    il: typeof b.il === 'string' && b.il.trim() ? b.il.trim().slice(0, 40) : cur.il || 'İstanbul',
+    districts,
+  };
+  changed(); res.json({ ok: true });
+  refreshPharmacies(true);
+});
+app.post('/api/admin/pharmacy/test', async (req, res) => {
+  const b = req.body || {}, cur = pharmCfg();
+  const cfg = { key: (b.key || cur.key || '').trim(), il: (b.il || cur.il || 'İstanbul').trim(), districts: (Array.isArray(b.districts) && b.districts.length ? b.districts : cur.districts || []).map(x => String(x).trim()).filter(Boolean).slice(0, 6) };
+  if (!cfg.key) return res.status(400).json({ error: 'Önce API anahtarını girin' });
+  if (!cfg.districts.length) return res.status(400).json({ error: 'En az bir ilçe girin' });
+  try { const items = await fetchPharmacies(cfg); res.json({ ok: true, count: items.length, sample: items.slice(0, 3) }); }
+  catch (e) { res.status(502).json({ error: e.message }); }
+});
+app.get('/api/admin/cache', (_, res) => {
+  const age = k => (cache[k] ? Math.round((Date.now() - cache[k].at) / 60000) : null);
+  res.json({
+    hava: age('weather'), doviz: age('rates:fx'), altin: age('rates:gold'), maclar: age('matches'),
+    tarihteBugun: onThisDay ? onThisDay.date : null,
+    nobetci: pharmacies ? { duty: pharmacies.duty, adet: pharmacies.items.length, guncel: pharmacies.duty === dutyDay() } : null, nobetciHata: pharmError,
+    puanDurumu: Object.fromEntries([...standings.keys()].map(c => [c, age('standings:' + c)])),
+  });
+});
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
   if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
+  if (typeof req.body.showOnThisDay === 'boolean') db.showOnThisDay = req.body.showOnThisDay;
   if (['auto', 'lite', 'full'].includes(req.body.fxMode)) db.fxMode = req.body.fxMode;
   if (req.body.safeInset !== undefined && isFinite(Number(req.body.safeInset))) db.safeInset = Math.max(0, Math.min(12, Math.round(Number(req.body.safeInset) * 2) / 2));
   if (typeof req.body.safeGuide === 'boolean') db.safeGuide = req.body.safeGuide;
