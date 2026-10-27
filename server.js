@@ -455,6 +455,7 @@ const publicState = () => ({
   showPharmacy: pharmCfg().enabled !== false,
   pharmacies: pharmacies && pharmacies.duty === dutyDay() && pharmacies.sig === pharmSig() ? { items: pharmacies.items, districts: pharmCfg().districts || [] } : null, // dünkü nöbet listesi gösterilmez
   safeInset: Math.max(0, Math.min(12, Number(db.safeInset) || 0)),
+  safe: ['L', 'R', 'T', 'B'].reduce((o, k) => { const v = db['safe' + k]; o[k] = Math.max(0, Math.min(20, Number(v !== undefined && v !== null ? v : db.safeInset) || 0)); return o; }, {}),
   safeGuide: !!db.safeGuide,
   qrs: (db.qrs || []).map(({ id, label, svg, side }) => ({ id, label, svg, side: side === 'left' ? 'left' : 'right' })),
   standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code)])),
@@ -606,6 +607,10 @@ app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showOnThisDay === 'boolean') db.showOnThisDay = req.body.showOnThisDay;
   if (['auto', 'lite', 'full'].includes(req.body.fxMode)) db.fxMode = req.body.fxMode;
   if (req.body.safeInset !== undefined && isFinite(Number(req.body.safeInset))) db.safeInset = Math.max(0, Math.min(12, Math.round(Number(req.body.safeInset) * 2) / 2));
+  for (const k of ['L', 'R', 'T', 'B']) {
+    const v = req.body['safe' + k];
+    if (v !== undefined && isFinite(Number(v))) db['safe' + k] = Math.max(0, Math.min(20, Math.round(Number(v) * 2) / 2));
+  }
   if (typeof req.body.safeGuide === 'boolean') db.safeGuide = req.body.safeGuide;
   if (typeof req.body.trafficApi === 'string') {
     const u = req.body.trafficApi.trim();

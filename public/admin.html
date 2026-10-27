@@ -143,13 +143,19 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
       <p id="tres" class="hint" style="margin:12px 0 0"></p>
 </div>
     <div class="card"><h2>Ekran Kenar Payı (TV kırpıyorsa)</h2>
-      <p class="hint">Büyük televizyonlar (özellikle 75 ve 85 inç) HDMI görüntüsünü büyütüp kenarlarını kırpabilir (overscan): saat, logo ya da sağdaki kartlar yarım görünür. <b>Önce TV ayarını düzeltin</b> (aşağıdaki ipucu). Düzelmezse buradan tüm ekranlar için içeriği biraz küçültebilirsiniz. Tüm TV'ler aynı görüntüyü aldığı için bu ayar hepsini etkiler; kırpmayan küçük TV'lerde ince bir koyu kenar kalır.</p>
-      <div class="row" style="align-items:center">
-        <div class="fld" style="max-width:420px"><label class="f">Kenar payı: <b id="insetval">0</b>%</label><input type="range" id="inset" min="0" max="12" step="0.5" value="0" oninput="$('insetval').textContent=this.value" onchange="api('PUT','/options',{safeInset:Number(this.value)},'Kenar payı kaydedildi')"></div>
+      <p class="hint">Büyük televizyonlar (özellikle 75 ve 85 inç) HDMI görüntüsünü büyütüp kenarlarını kırpabilir (overscan): saat, logo ya da sağdaki kartlar yarım görünür. <b>Önce TV ayarını düzeltin</b> (aşağıdaki ipucu). Düzelmezse buradan tüm ekranlar için içeriği biraz küçültebilirsiniz. Tüm TV'ler aynı görüntüyü aldığı için bu ayar hepsini etkiler; kırpmayan küçük TV'lerde koyu bir kenar kalır.</p>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 22px">
+        <div class="fld"><label class="f">Sol kenar: <b id="sv-L">0</b>%</label><input type="range" id="safeL" min="0" max="20" step="0.5" value="0" oninput="$('sv-L').textContent=this.value" onchange="saveSafe()"></div>
+        <div class="fld"><label class="f">Sağ kenar: <b id="sv-R">0</b>%</label><input type="range" id="safeR" min="0" max="20" step="0.5" value="0" oninput="$('sv-R').textContent=this.value" onchange="saveSafe()"></div>
+        <div class="fld"><label class="f">Üst kenar: <b id="sv-T">0</b>%</label><input type="range" id="safeT" min="0" max="20" step="0.5" value="0" oninput="$('sv-T').textContent=this.value" onchange="saveSafe()"></div>
+        <div class="fld"><label class="f">Alt kenar: <b id="sv-B">0</b>%</label><input type="range" id="safeB" min="0" max="20" step="0.5" value="0" oninput="$('sv-B').textContent=this.value" onchange="saveSafe()"></div>
+      </div>
+      <div class="row" style="align-items:center;margin-top:14px">
         <label class="sw" title="Hizalama çerçevesi"><input type="checkbox" id="guide" onchange="api('PUT','/options',{safeGuide:this.checked},this.checked?'Hizalama çerçevesi açıldı':'Hizalama çerçevesi kapandı')"><i></i></label>
         <span style="font-size:14px">Hizalama çerçevesini göster</span>
+        <button class="btn ghost sm" onclick="resetSafe()">Sıfırla</button>
       </div>
-      <p class="hint" style="margin-top:12px"><b>Nasıl ayarlanır:</b> "Hizalama çerçevesini göster"i açın. TV'lerde yeşil bir çerçeve çıkar. En çok kırpan TV'de çerçevenin dört kenarı ve köşelerindeki kareler tam görünene kadar kaydırıcıyı artırın. Sonra çerçeveyi kapatın.<br><b>TV ayarı ipucu:</b> TV kumandasında Ayarlar → Görüntü → <i>Görüntü Boyutu / En-Boy Oranı</i> bölümünde <i>"Just Scan"</i>, <i>"Ekrana Sığdır (Screen Fit)"</i>, <i>"Orijinal"</i> ya da <i>"1:1"</i> seçeneğini seçin ve <i>"Overscan"</i> kapalı olsun. Bu seçenek genelde kenar kırpmayı tamamen kaldırır ve en iyi çözümdür.</p>
+      <p class="hint" style="margin-top:12px"><b>Nasıl ayarlanır:</b> "Hizalama çerçevesini göster"i açın. TV'lerde yeşil bir çerçeve çıkar. En çok kırpan TV'de (örn. 75 ya da 85 inç) çerçevenin dört kenarı ve köşelerindeki kareler tam görünene kadar <b>her kenarı ayrı ayrı</b> artırın: hangi kenar kesiliyorsa o kaydırıcıyı büyütün (örn. sağ taraf kesiliyorsa sadece "Sağ kenar"). İçerik oranı bozulmadan küçülür ve görünen alana ortalanır. Sonra çerçeveyi kapatın. 55 inç gibi kırpmayan TV'lerde ayrılan kenarlar boş (siyah) görünür.<br><b>TV ayarı ipucu:</b> TV kumandasında Ayarlar → Görüntü → <i>Görüntü Boyutu / En-Boy Oranı</i> bölümünde <i>"Just Scan"</i>, <i>"Ekrana Sığdır (Screen Fit)"</i>, <i>"Orijinal"</i> ya da <i>"1:1"</i> seçeneğini seçin ve <i>"Overscan"</i> kapalı olsun. Bu seçenek genelde kenar kırpmayı tamamen kaldırır ve en iyi çözümdür.</p>
     </div>
     <div class="card"><h2>Performans</h2>
       <p class="hint">TV ekranı takılıyorsa efektleri azaltın. <b>Otomatik</b>: Android uygulamasında (APK) hafif, bilgisayar tarayıcısında tam görünüm. <b>Hafif</b>: her yerde ağır efektler kapalı (bulanıklık, cam efekti, koyu harita, videonun arkasındaki bulanık dolgu). <b>Tam</b>: her yerde tüm efektler açık.</p>
@@ -625,6 +631,8 @@ const rmTime = i => { times = times.filter((_, j) => j !== i); timesDirty = true
 const saveSchedule = async () => { if (await api('PUT', '/schedule', { times, duration: $('dur').value }, 'Zamanlama kaydedildi')) timesDirty = false; };
 const addB = async () => { const ok = await api('POST', '/birthdays', { name: $('bn').value.trim() }, 'Kişi eklendi'); if (ok) $('bn').value = ''; };
 
+const saveSafe = () => api('PUT', '/options', { safeL: Number($('safeL').value), safeR: Number($('safeR').value), safeT: Number($('safeT').value), safeB: Number($('safeB').value) }, 'Kenar payları kaydedildi');
+const resetSafe = () => api('PUT', '/options', { safeL: 0, safeR: 0, safeT: 0, safeB: 0 }, 'Kenar payları sıfırlandı');
 /* ortak */
 function counts() {
   const sel = (db.birthdays || []).filter(b => b.selected).length;
@@ -645,7 +653,7 @@ async function load() {
   loadSystem();
   const [d, l, pb] = await Promise.all([fetch('/api/admin/db').then(r => r.json()), fetch('/api/admin/leagues').then(r => r.json()), fetch('/api/state').then(r => r.json())]);
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
-  $('inset').value = db.safeInset || 0; $('insetval').textContent = db.safeInset || 0; $('guide').checked = !!db.safeGuide;
+  ['L', 'R', 'T', 'B'].forEach(k => { const v = db['safe' + k] != null ? db['safe' + k] : (db.safeInset || 0); $('safe' + k).value = v; $('sv-' + k).textContent = v; }); $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
   loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
 }
