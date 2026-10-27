@@ -444,7 +444,7 @@ const publicState = () => ({
   matches: [
     ...db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)).map(m => ({ ...m, day: 'Bugün' })),
     ...autoMatches.filter(m => enabledLeagues().some(([, label]) => label === m.league)),
-  ].slice(0, 30).map(m => ({ ...m, channel: (db.channels || {})[`${m.league}|${m.home}|${m.away}`] || (db.leagueChannels || {})[m.league] || null })),
+  ].slice(0, 30).map(m => ({ ...m, hl: localLogo(m.hl), al: localLogo(m.al), channel: (db.channels || {})[`${m.league}|${m.home}|${m.away}`] || (db.leagueChannels || {})[m.league] || null })),
   showStandings: db.showStandings !== false,
   trafficApi: db.trafficApi || '',
   showQr: db.showQr !== false,
@@ -459,11 +459,40 @@ const publicState = () => ({
   safe: ['L', 'R', 'T', 'B'].reduce((o, k) => { const v = db['safe' + k]; o[k] = Math.max(0, Math.min(20, Number(v !== undefined && v !== null ? v : db.safeInset) || 0)); return o; }, {}),
   safeGuide: !!db.safeGuide,
   qrs: (db.qrs || []).map(({ id, label, svg, side }) => ({ id, label, svg, side: side === 'left' ? 'left' : 'right' })),
-  standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code)])),
+  standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code).map(r => ({ ...r, logo: localLogo(r.logo) }))])),
   rates,
   weather,
   traffic,
 });
+
+// ---- Takım logoları: 500 px yerine 128 px'lik küçük sürüm, diskte önbellekli, uzun süreli tarayıcı önbelleği ----
+const LOGO_DIR = path.join(DATA_DIR, 'logos');
+fs.mkdirSync(LOGO_DIR, { recursive: true });
+const logoJobs = new Map();
+const localLogo = u => { const m = typeof u === 'string' && u.match(/teamlogos\/soccer\/500\/(\d+)\.png/); return m ? `/logo/${m[1]}.png` : u; };
+async function makeLogo(id) {
+  const out = path.join(LOGO_DIR, id + '.png');
+  if (fs.existsSync(out)) return out;
+  const r = await fetch(`https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png`);
+  if (!r.ok) throw new Error('logo yok ' + r.status);
+  const raw = path.join(LOGO_DIR, id + '.raw.png');
+  fs.writeFileSync(raw, Buffer.from(await r.arrayBuffer()));
+  try {
+    await runFfmpeg(['-y', '-i', raw, '-vf', 'scale=128:128:force_original_aspect_ratio=decrease', '-frames:v', '1', out], 60000);
+    fs.rmSync(raw, { force: true });
+  } catch (e) { fs.renameSync(raw, out); } // küçültülemezse orijinal kullanılır
+  return out;
+}
+app.get('/logo/:id.png', async (req, res) => {
+  if (!/^\d{1,8}$/.test(req.params.id)) return res.status(400).end();
+  try {
+    if (!logoJobs.has(req.params.id)) logoJobs.set(req.params.id, makeLogo(req.params.id).finally(() => setTimeout(() => logoJobs.delete(req.params.id), 1000)));
+    const file = await logoJobs.get(req.params.id);
+    res.set('Cache-Control', 'public, max-age=2592000, immutable');
+    res.sendFile(file);
+  } catch (e) { res.status(404).end(); }
+});
+
 app.get('/api/state', (_, res) => res.json(publicState()));
 app.post('/api/traffic/report', (req, res) => {
   const { all, asia, europe, ts, sig } = req.body || {};
@@ -478,7 +507,11 @@ app.post('/api/traffic/report', (req, res) => {
   res.json({ ok: true });
 });
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '365d', immutable: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, file) => {
+    if (/\.(woff2|png|apk)$/.test(file)) res.setHeader('Cache-Control', /\.apk$/.test(file) ? 'public, max-age=300' : 'public, max-age=2592000, immutable');
+  },
+}));
 
 const upload = multer({
   storage: multer.diskStorage({

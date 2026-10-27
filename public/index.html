@@ -1,5 +1,7 @@
 <!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preload" href="/fonts/montserrat-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/montserrat-latin-ext.woff2" as="font" type="font/woff2" crossorigin>
 <title>TV</title>
 <script>
 /* APK içinde ya da ?lite=1 ile hafif mod: ağır efektler kapanır */
@@ -13,7 +15,8 @@
 })();
 </script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:300 800;font-display:swap;src:url(/fonts/montserrat-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:300 800;font-display:swap;src:url(/fonts/montserrat-latin.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 :root{--edge:#151717;--bg:#1b1d1d;--card:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--white:#FBFBFB;--soft:#E5E5E5;--mute:#9aa0a0;--accent:#906538;--accent2:#c9955c;--live:#ff4d4d}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;width:100%;background:var(--edge);color:var(--white);font-family:Montserrat,system-ui,sans-serif;overflow:hidden;cursor:none}
@@ -47,8 +50,10 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #dots i.on{background:var(--accent2);width:1.5vw;border-radius:1vw}
 #mbody{flex:1;min-height:0;position:relative}
 #list{position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;gap:1vh;transition:opacity .45s,transform .45s}
-#list.out,#traffic.out{opacity:0;transform:translateY(1.2vh)}
-#traffic{position:absolute;inset:0;overflow:hidden;border-radius:16px;border:1px solid rgba(201,149,92,.55);visibility:hidden;background:#15181b;box-shadow:0 0 0 .4vh rgba(0,0,0,.35),0 2vh 5vh rgba(0,0,0,.55);transition:opacity .45s,transform .45s}
+#list.out{opacity:0;transform:translateY(1.2vh)}
+#traffic.out{opacity:0}
+#traffic.off{transform:translateX(-400vw);pointer-events:none}
+#traffic{position:absolute;inset:0;overflow:hidden;border-radius:16px;border:1px solid rgba(201,149,92,.55);background:#15181b;box-shadow:0 0 0 .4vh rgba(0,0,0,.35),0 2vh 5vh rgba(0,0,0,.55);transition:opacity .45s}
 #traffic iframe{position:absolute;width:1600px;height:1600px;left:50%;top:50%;margin:-800px 0 0 -800px;border:0;pointer-events:none;filter:invert(.93) hue-rotate(180deg) saturate(1.25) brightness(.92) contrast(1.05)}
 #traffic::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:16px;box-shadow:inset 0 0 6vh rgba(10,12,14,.75)}
 #tchip{position:absolute;right:.9vw;top:1vh;z-index:2;display:flex;align-items:center;gap:.4vw;background:rgba(20,22,24,.72);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.1);border-radius:3vh;padding:.35vh .7vw;font-size:.95vh;letter-spacing:.16em;font-weight:700;text-transform:uppercase;color:var(--soft)}
@@ -198,7 +203,7 @@ html.lite #traffic::after{box-shadow:none}
   <div id="stage"><div id="frame"><div id="bgw"><canvas id="bgc"></canvas></div><video id="v" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><video id="v2" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><img id="img" alt=""><div id="qr-left" class="qrc"></div><div id="qr-right" class="qrc"></div></div></div>
   <div id="side">
     <div id="logo"></div>
-    <div id="matches"><div id="goal"></div><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tchip">Canlı Trafik</div><div id="tidx"></div><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
+    <div id="matches"><div id="goal"></div><div id="mhead"><h2 id="mtitle">Maçlar</h2><div id="dots"></div></div><div id="mbody"><div id="list"></div><div id="traffic" class="off"><iframe loading="eager" referrerpolicy="no-referrer"></iframe><div id="tchip">Canlı Trafik</div><div id="tidx"></div><div id="tlegend"><span>Akıcı</span><i></i><span>Yoğun</span></div></div></div></div>
     <div id="rates"></div>
   </div>
   <div id="reviews"></div>
@@ -218,6 +223,10 @@ function showEl(el) { els.forEach(e => { e.style.opacity = e === el ? '1' : '0';
 function prepNext() {
   if (videos.length < 2) { prepared = { id: null }; return; }
   const n = videos[(idx + 1) % videos.length], el = idleV();
+  if (n.type === 'image') { // sıradaki fotoğrafı önceden indir ve çöz: gösterilince anında çıkar
+    if (window.__preUrl !== n.url) { window.__preUrl = n.url; const im = new Image(); im.src = n.url; window.__preImg = im; if (im.decode) im.decode().catch(() => {}); }
+    prepared = { id: null }; return;
+  }
   if (n.type !== 'video') { prepared = { id: null }; return; }
   if (prepared.id === n.id && el.dataset.url === n.url) return;
   el.dataset.url = n.url; el.loop = false; el.src = n.url; el.load();
@@ -293,6 +302,7 @@ function tableHtml(rows) {
   return '<div class="tbl"><div class="th"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AV</span><span>P</span></div>' +
     rows.map(r => `<div class="trw ${r.rank === 1 ? 'top1' : ''}"><span class="rk">${esc(r.rank)}</span><span class="tn">${r.logo ? `<img src="${esc(r.logo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : ''}<b>${esc(r.name)}</b></span><span>${esc(r.gp)}</span><span>${esc(r.w)}</span><span>${esc(r.d)}</span><span>${esc(r.l)}</span><span>${esc(r.gd)}</span><span class="pt">${esc(r.pts)}</span></div>`).join('') + '</div>';
 }
+let pagesDirty = true; // sayfa listesi yalnızca veri ya da ölçü değişince yeniden hesaplanır (her geçişte değil)
 let pharmData = null, showPharm = true, otdData = null, showOtd = true, newsData = null, showNews = true;
 const pharmCard = p => `<div class="m ph"><div class="pn">${esc(p.name)}</div><div class="pa">${esc(p.address)}</div><div class="pt2">${p.phone ? '☎ ' + esc(fmtPhone(p.phone)) : ''}${pharmData && pharmData.districts.length > 1 ? `<span class="pd">${esc(p.district)}</span>` : ''}</div></div>`;
 const fmtPhone = t => { const d = String(t || '').replace(/\D/g, ''); return /^0\d{10}$/.test(d) ? `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}` : String(t || ''); };
@@ -366,19 +376,19 @@ function loadTraffic() {
 }
 // Harita sayfa açılır açılmaz (video başlamasına engel olmasın diye 3 sn sonra) yüklenir ve açık kalır; böylece harita sayfası geldiğinde hazırdır.
 // Yenileme (trafik katmanını güncel tutmak için) yalnızca harita görünmüyorken ve sıradaki sayfa da harita değilken yapılır.
-setTimeout(loadTraffic, 3000);
+setTimeout(loadTraffic, 8000); // video ve ilk sayfalar yerleşsin diye biraz geç
 setInterval(() => {
   const nx = pages[(page + 1) % Math.max(1, pages.length)];
   if (pages[page] && pages[page].type !== 'traffic' && !(nx && nx.type === 'traffic')) loadTraffic();
 }, 4 * 60 * 1000);
 function render() {
   const list = document.getElementById('list'), tr = document.getElementById('traffic'), dots = document.getElementById('dots');
-  if (!window.fitted) { fit(); window.fitted = true; }
-  buildPages();
+  if (!window.fitted) { fit(); window.fitted = true; pagesDirty = true; }
+  if (pagesDirty || !pages.length) { buildPages(); pagesDirty = false; }
   page = PIN === 'traffic' ? pages.length - 1 : /^\d+$/.test(PIN || '') ? Math.min(+PIN, pages.length - 1) : page % pages.length;
   const pg = pages[page];
   const isTraffic = pg.type === 'traffic';
-  tr.style.visibility = isTraffic ? 'visible' : 'hidden';
+  tr.classList.toggle('off', !isTraffic);
   list.style.display = isTraffic ? 'none' : 'flex';
   document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'news' ? `Gündem<em>TÜRKİYE${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
   document.getElementById('mtitle').classList.toggle('long', document.getElementById('mtitle').textContent.length > 20);
@@ -401,12 +411,12 @@ function schedule() {
   const ty = pages[page] && pages[page].type;
   rot = setTimeout(tick, ty === 'traffic' ? TRAFFIC_MS : (ty === 'pharm' || ty === 'otd' || ty === 'news') ? 13000 : PAGE_MS);
 }
-addEventListener('resize', () => { fit(); render(); });
+addEventListener('resize', () => { fit(); pagesDirty = true; render(); });
 function setMatches(list, st, show) {
   const same = JSON.stringify([list, st, show]) === JSON.stringify([matches, standingsData, showStandings]);
   if (matches.some(m => m.channel) !== list.some(m => m.channel)) window.fitted = false;
   matches = list; standingsData = st || {}; showStandings = show !== false;
-  if (!same || !pages.length || window.__forceRender) { window.__forceRender = false; render(); if (!rot) schedule(); }
+  if (!same || !pages.length || window.__forceRender) { window.__forceRender = false; pagesDirty = true; render(); if (!rot) schedule(); }
 }
 let reviews = [], revIdx = 0, revTimer;
 function showReview() {
@@ -491,6 +501,8 @@ function setTicker(list) {
     const tag = m.live ? `<span class="lv">● ${esc(m.clock || 'CANLI')}</span>` : m.final ? '<span class="ft">MS</span>' : `<span class="ft">${esc(m.time)}</span>`;
     return `<span class="ti"><span class="lg">${esc(m.league)}</span><span>${esc(m.home)}</span>${mid}<span>${esc(m.away)}</span>${tag}</span>`;
   }).join('') || '<span class="ti"><span class="ft">Şu an gösterilecek maç yok</span></span>';
+  if (window.__lastTick === label + '|' + items) return; // değişiklik yok: yeniden çizme
+  window.__lastTick = label + '|' + items;
   document.getElementById('tl').textContent = label;
   const a = document.getElementById('ta'), b = document.getElementById('tb'), track = document.getElementById('ttrack');
   // tek kopya ekrandan kısaysa çoğalt ki boşluk kalmasın
@@ -521,7 +533,19 @@ function applySafe(safe, guide) {
   document.getElementById('gtxt').innerHTML = `ÇERÇEVENİN TAMAMI GÖRÜNMELİ<br>sol %${L} · sağ %${R} · üst %${T} · alt %${B}`;
 }
 addEventListener('resize', () => applySafe(null, guideOn));
+const preloaded = new Set();
+function preloadLogos(s) { // tüm sayfalardaki logoları arka planda indir: sayfa geldiğinde logolar hazır olsun
+  const urls = [];
+  (s.matches || []).forEach(m => { if (m.hl) urls.push(m.hl); if (m.al) urls.push(m.al); });
+  Object.values(s.standings || {}).forEach(rows => rows.forEach(r => { if (r.logo) urls.push(r.logo); }));
+  const fresh = urls.filter(u => !preloaded.has(u));
+  fresh.forEach(u => preloaded.add(u));
+  let i = 0;
+  const step = () => { fresh.slice(i, i + 6).forEach(u => { const im = new Image(); im.src = u; }); i += 6; if (i < fresh.length) setTimeout(step, 250); };
+  if (fresh.length) setTimeout(step, 1500);
+}
 function setState(s) {
+  preloadLogos(s);
   applySafe(s.safe || { L: s.safeInset, R: s.safeInset, T: s.safeInset, B: s.safeInset }, s.safeGuide);
   const ids = s.videos.map(x => x.id).join();
   const changed = ids !== videos.map(x => x.id).join();
@@ -626,6 +650,9 @@ function startRateSwap() { // 8 sn'de bir USD/EUR/ALTIN ile BIST 100/BITCOIN/STE
 // günlük değişim: ▲ yeşil, ▼ kırmızı
 const chg = v => (v == null || !isFinite(v)) ? '' : `<em class="chg ${v > 0.005 ? 'up' : v < -0.005 ? 'dn' : 'fl'}">${v > 0.005 ? '▲' : v < -0.005 ? '▼' : '•'}${Math.abs(v).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</em>`;
 function renderPanel() {
+  const sig = JSON.stringify([lastRates, lastWeather]);
+  if (sig === window.__panelSig && document.getElementById('rrow')) return; // değişiklik yok
+  window.__panelSig = sig;
   const r = lastRates, w = lastWeather;
   const f = (x, d = 2) => x ? x.toLocaleString('tr-TR', {minimumFractionDigits: d, maximumFractionDigits: d}) : '--';
   const t = r.updated ? new Date(r.updated).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul'}) : '';
