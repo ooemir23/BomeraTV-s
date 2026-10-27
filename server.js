@@ -377,17 +377,18 @@ let ffmpegOk = false;
 try { const t = spawn(FFMPEG, ['-version'], { stdio: 'ignore' }); t.on('error', () => {}); t.on('close', c => { ffmpegOk = c === 0; }); } catch (e) { /* yok */ }
 const optQueue = [];
 let optBusy = false;
-function runFfmpeg(args, timeoutMs = 20 * 60 * 1000) {
+function runCmd(cmd, args, timeoutMs = 20 * 60 * 1000) {
   return new Promise((resolve, reject) => {
-    const p = spawn(FFMPEG, ['-nostdin', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
+    const p = spawn(cmd, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     try { require('os').setPriority(p.pid, 15); } catch (e) { /* öncelik düşürülemedi */ }
     let err = '';
     p.stderr.on('data', d => { err = (err + d).slice(-1500); });
     const t = setTimeout(() => p.kill('SIGKILL'), timeoutMs);
     p.on('error', e => { clearTimeout(t); reject(e); });
-    p.on('close', code => { clearTimeout(t); code === 0 ? resolve() : reject(new Error('ffmpeg ' + code + ': ' + err.trim().split('\n').slice(-2).join(' | '))); });
+    p.on('close', code => { clearTimeout(t); code === 0 ? resolve() : reject(new Error(path.basename(cmd) + ' ' + code + ': ' + err.trim().split('\n').slice(-2).join(' | '))); });
   });
 }
+const runFfmpeg = (args, timeoutMs) => runCmd(FFMPEG, ['-nostdin', ...args], timeoutMs);
 const SCALE = "scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
 async function optimizeItem(id) {
   const v = db.videos.find(x => x.id === id);
@@ -447,6 +448,7 @@ const publicState = () => ({
   ].slice(0, 30).map(m => ({ ...m, hl: localLogo(m.hl), al: localLogo(m.al), channel: (db.channels || {})[`${m.league}|${m.home}|${m.away}`] || (db.leagueChannels || {})[m.league] || null })),
   showStandings: db.showStandings !== false,
   trafficApi: db.trafficApi || '',
+  mapAt: mapAt ? Math.round(mapAt) : null,
   showQr: db.showQr !== false,
   fxMode: ['auto', 'lite', 'full'].includes(db.fxMode) ? db.fxMode : 'auto',
   showOnThisDay: db.showOnThisDay !== false,
@@ -464,6 +466,44 @@ const publicState = () => ({
   weather,
   traffic,
 });
+
+
+// ---- Trafik haritası: sunucuda (başsız Chromium) çizilir, koyu temaya çevrilip resim olarak saklanır; TV yalnızca resmi gösterir ----
+const MAP_DIR = path.join(DATA_DIR, 'map');
+fs.mkdirSync(MAP_DIR, { recursive: true });
+const MAP_FILE = path.join(MAP_DIR, 'traffic.jpg');
+const CHROMIUM = process.env.CHROMIUM_PATH || 'chromium';
+const MAP_URL = 'https://yandex.com.tr/map-widget/v1/?ll=28.95%2C41.04&z=11&l=map%2Ctrf&lang=tr_TR';
+let mapAt = fs.existsSync(MAP_FILE) ? fs.statSync(MAP_FILE).mtimeMs : null;
+let mapErr = '', mapBusy = false;
+async function renderMap() {
+  if (mapBusy) return { ok: false, error: 'zaten çalışıyor' };
+  mapBusy = true;
+  const raw = path.join(MAP_DIR, 'raw.png'), tmp = path.join(MAP_DIR, 'next.jpg');
+  const ud = fs.mkdtempSync(path.join(require('os').tmpdir(), 'chr-'));
+  try {
+    fs.rmSync(raw, { force: true });
+    await runCmd(CHROMIUM, ['--headless', '--no-sandbox', '--disable-gpu', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage', '--hide-scrollbars',
+      '--window-size=1400,1700', '--virtual-time-budget=30000', '--user-data-dir=' + ud, '--screenshot=' + raw, MAP_URL], 90000);
+    if (!fs.existsSync(raw) || fs.statSync(raw).size < 120000) throw new Error('harita çizilemedi (görüntü boş)');
+    // ortadan kırp (Yandex düğmeleri ve çerez kutusu dışarıda kalır), koyu temaya çevir, JPEG'e sıkıştır
+    await runFfmpeg(['-y', '-i', raw, '-vf', 'crop=1000:1300:200:200,negate,hue=h=180:s=1.15,eq=contrast=1.05:brightness=-0.03:saturation=1.1', '-frames:v', '1', '-q:v', '4', tmp], 60000);
+    fs.renameSync(tmp, MAP_FILE);
+    mapAt = Date.now(); mapErr = '';
+    broadcast({ type: 'state', state: publicState() });
+    return { ok: true };
+  } catch (e) {
+    mapErr = String(e.message).slice(0, 200); console.error('Harita çizilemedi:', mapErr);
+    return { ok: false, error: mapErr };
+  } finally {
+    fs.rmSync(ud, { recursive: true, force: true }); fs.rmSync(raw, { force: true }); fs.rmSync(tmp, { force: true });
+    mapBusy = false;
+  }
+}
+function maybeRenderMap() { // ekran bağlı değilse boşuna çizme
+  const stale = !mapAt || Date.now() - mapAt > 9.5 * 60 * 1000;
+  if (stale && (wss.clients.size > 0 || !mapAt)) renderMap();
+}
 
 // ---- Takım logoları: 500 px yerine 128 px'lik küçük sürüm, diskte önbellekli, uzun süreli tarayıcı önbelleği ----
 const LOGO_DIR = path.join(DATA_DIR, 'logos');
@@ -483,6 +523,11 @@ async function makeLogo(id) {
   } catch (e) { fs.renameSync(raw, out); } // küçültülemezse orijinal kullanılır
   return out;
 }
+app.get('/traffic-map.jpg', (req, res) => {
+  if (!mapAt) return res.status(404).end();
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(MAP_FILE);
+});
 app.get('/logo/:id.png', async (req, res) => {
   if (!/^\d{1,8}$/.test(req.params.id)) return res.status(400).end();
   try {
@@ -600,11 +645,13 @@ app.post('/api/admin/news/test', async (req, res) => {
   try { const items = await fetchNews(key, ['general', 'economy', 'sport', 'technology'].includes(b.tag) ? b.tag : 'general'); res.json({ ok: true, count: items.length, sample: items.slice(0, 2) }); }
   catch (e) { res.status(502).json({ error: e.message }); }
 });
+app.post('/api/admin/map/refresh', async (_, res) => { const r = await renderMap(); res.status(r.ok ? 200 : 502).json(r); });
 app.get('/api/admin/cache', (_, res) => {
   const age = k => (cache[k] ? Math.round((Date.now() - cache[k].at) / 60000) : null);
   res.json({
     hava: age('weather'), doviz: age('rates:fx'), altin: age('rates:gold'), maclar: age('matches'),
     tarihteBugun: onThisDay ? onThisDay.date : null,
+    harita: { dk: mapAt ? Math.round((Date.now() - mapAt) / 60000) : null, hata: mapErr },
     haber: news ? { adet: news.items.length, dk: age('news'), hata: newsError } : (newsError ? { hata: newsError } : null),
     collectBugun: collectStats.day === ymd(new Date()) ? collectStats.n : 0,
     nobetci: pharmacies ? { duty: pharmacies.duty, adet: pharmacies.items.length, guncel: pharmacies.duty === dutyDay() } : null, nobetciHata: pharmError,
@@ -752,8 +799,11 @@ function broadcast(msg) {
   const s = JSON.stringify(msg);
   wss.clients.forEach(c => c.readyState === 1 && c.send(s));
 }
+setTimeout(maybeRenderMap, 20000);
+setInterval(maybeRenderMap, 3 * 60 * 1000); // kontrol sıklığı; çizim en çok 10 dakikada bir
 const BUILD = require('crypto').createHash('md5').update(fs.readFileSync(path.join(__dirname, 'public/index.html'))).digest('hex');
 wss.on('connection', ws => {
+  setTimeout(maybeRenderMap, 1500);
   ws.send(JSON.stringify({ type: 'version', build: BUILD }));
   ws.send(JSON.stringify({ type: 'state', state: publicState() }));
 });
