@@ -484,10 +484,10 @@ async function renderMap() {
   try {
     fs.rmSync(raw, { force: true });
     await runCmd(CHROMIUM, ['--headless', '--no-sandbox', '--disable-gpu', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage', '--hide-scrollbars',
-      '--window-size=1400,1700', '--virtual-time-budget=30000', '--user-data-dir=' + ud, '--screenshot=' + raw, MAP_URL], 90000);
-    if (!fs.existsSync(raw) || fs.statSync(raw).size < 120000) throw new Error('harita çizilemedi (görüntü boş)');
+      '--window-size=1000,1300', '--virtual-time-budget=60000', '--user-data-dir=' + ud, '--screenshot=' + raw, MAP_URL], 150000);
+    if (!fs.existsSync(raw) || fs.statSync(raw).size < 300000) throw new Error('harita çizilemedi (görüntü boş)');
     // ortadan kırp (Yandex düğmeleri ve çerez kutusu dışarıda kalır), koyu temaya çevir, JPEG'e sıkıştır
-    await runFfmpeg(['-y', '-i', raw, '-vf', 'crop=1000:1300:200:200,negate,hue=h=180:s=1.15,eq=contrast=1.05:brightness=-0.03:saturation=1.1', '-frames:v', '1', '-q:v', '4', tmp], 60000);
+    await runFfmpeg(['-y', '-i', raw, '-vf', 'crop=900:1030:30:55,negate,hue=h=180:s=1.15,eq=contrast=1.05:brightness=-0.03:saturation=1.1', '-frames:v', '1', '-q:v', '4', tmp], 60000);
     fs.renameSync(tmp, MAP_FILE);
     mapAt = Date.now(); mapErr = '';
     broadcast({ type: 'state', state: publicState() });
