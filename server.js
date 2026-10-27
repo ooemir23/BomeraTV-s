@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] } };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 } };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
@@ -266,12 +266,26 @@ let pharmacies = cacheGet('pharmacies');
 let pharmError = '';
 const pharmCfg = () => db.pharmacy || {};
 const pharmSig = () => JSON.stringify([pharmCfg().il || 'İstanbul', pharmCfg().districts || []]);
+// CollectAPI: istek sınırı ~16 sn'de bir, bu yüzden tüm çağrılar bu sıralayıcıdan geçer
+const collectStats = { day: '', n: 0, lastError: '' };
+let collectNext = 0;
+async function collectFetch(url, key) {
+  const t = Math.max(Date.now(), collectNext);
+  collectNext = t + 17000;
+  if (t > Date.now()) await new Promise(r => setTimeout(r, t - Date.now()));
+  const day = ymd(new Date());
+  if (collectStats.day !== day) { collectStats.day = day; collectStats.n = 0; }
+  collectStats.n++;
+  const r = await fetch(url, { headers: { authorization: 'apikey ' + key, 'content-type': 'application/json' } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 429) throw new Error('İstek sınırı aşıldı (429). Biraz sonra yeniden denenecek.');
+  if (!r.ok || j.success === false) throw new Error(j.message || j.error || ('HTTP ' + r.status));
+  return j;
+}
 async function fetchPharmacies(cfg) {
   const out = [];
   for (const d of cfg.districts) {
-    const r = await fetch(`${PHARM_BASE}/health/dutyPharmacy?ilce=${encodeURIComponent(d)}&il=${encodeURIComponent(cfg.il || 'İstanbul')}`, { headers: { authorization: 'apikey ' + cfg.key, 'content-type': 'application/json' } });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || j.success === false) throw new Error(j.message || j.error || ('HTTP ' + r.status));
+    const j = await collectFetch(`${PHARM_BASE}/health/dutyPharmacy?ilce=${encodeURIComponent(d)}&il=${encodeURIComponent(cfg.il || 'İstanbul')}`, cfg.key);
     for (const p of j.result || []) out.push({ district: p.dist || p.district || d, name: p.name || p.pharmacyName || '', address: p.address || '', phone: p.phone || '' });
   }
   return out;
@@ -289,6 +303,41 @@ async function refreshPharmacies(force) {
     broadcast({ type: 'state', state: publicState() });
   } catch (e) { pharmError = e.message; console.error('Nöbetçi eczane alınamadı:', e.message); }
 }
+
+// ---- Haberler (CollectAPI, Türkiye): ayarlanabilir aralıkta (varsayılan 3 saat), önbellekli ----
+const newsCfg = () => db.news || {};
+const newsKey = () => newsCfg().key || pharmCfg().key || ''; // ayrı anahtar girilmediyse eczane anahtarı kullanılır
+let news = cacheGet('news');
+let newsError = '', newsFailAt = 0;
+async function fetchNews(key, tag) {
+  const j = await collectFetch(`${PHARM_BASE}/news/getNews?country=tr&tag=${encodeURIComponent(tag || 'general')}`, key);
+  const seen = new Set(), items = [];
+  for (const n of j.result || []) {
+    const title = String(n.name || '').trim();
+    if (!title || seen.has(title)) continue;
+    seen.add(title);
+    items.push({ title, source: n.source || '', date: n.date || null });
+    if (items.length >= 8) break;
+  }
+  if (!items.length) throw new Error('haber listesi boş');
+  return items;
+}
+async function refreshNews(force) {
+  const cfg = newsCfg(), key = newsKey();
+  if (!key || cfg.enabled === false) return;
+  const ttl = Math.max(1, Math.min(12, Number(cfg.hours) || 3)) * HOUR;
+  if (!force && news && news.tag === (cfg.tag || 'general') && cacheAge('news') < ttl) return; // taze
+  if (!force && Date.now() - newsFailAt < 30 * MIN) return; // hata sonrası 30 dk bekle (kotayı yakma)
+  try {
+    const items = await fetchNews(key, cfg.tag || 'general');
+    news = { tag: cfg.tag || 'general', items, updated: new Date().toISOString() };
+    newsError = ''; cachePut('news', news);
+    broadcast({ type: 'state', state: publicState() });
+  } catch (e) { newsError = e.message; newsFailAt = Date.now(); console.error('Haber alınamadı:', e.message); }
+}
+setTimeout(refreshNews, 6000);
+setInterval(refreshNews, 10 * MIN); // yalnızca süre dolunca ağa gider
+
 setTimeout(refreshPharmacies, 4000);
 setInterval(refreshPharmacies, 30 * MIN); // ağa yalnızca nöbet günü değişince ya da ayar değişince gidilir
 
@@ -401,6 +450,8 @@ const publicState = () => ({
   fxMode: ['auto', 'lite', 'full'].includes(db.fxMode) ? db.fxMode : 'auto',
   showOnThisDay: db.showOnThisDay !== false,
   onThisDay: onThisDay && onThisDay.date === ymd(new Date()) ? onThisDay : null,
+  showNews: newsCfg().enabled !== false,
+  news: news && Date.now() - Date.parse(news.updated) < 12 * HOUR ? { items: news.items } : null, // 12 saatten eski haber gösterilmez
   showPharmacy: pharmCfg().enabled !== false,
   pharmacies: pharmacies && pharmacies.duty === dutyDay() && pharmacies.sig === pharmSig() ? { items: pharmacies.items, districts: pharmCfg().districts || [] } : null, // dünkü nöbet listesi gösterilmez
   safeInset: Math.max(0, Math.min(12, Number(db.safeInset) || 0)),
@@ -495,11 +546,32 @@ app.post('/api/admin/pharmacy/test', async (req, res) => {
   try { const items = await fetchPharmacies(cfg); res.json({ ok: true, count: items.length, sample: items.slice(0, 3) }); }
   catch (e) { res.status(502).json({ error: e.message }); }
 });
+app.put('/api/admin/news', (req, res) => {
+  const b = req.body || {}, cur = newsCfg();
+  db.news = {
+    enabled: typeof b.enabled === 'boolean' ? b.enabled : cur.enabled !== false,
+    key: typeof b.key === 'string' ? b.key.trim().slice(0, 120) : cur.key || '',
+    tag: ['general', 'economy', 'sport', 'technology'].includes(b.tag) ? b.tag : cur.tag || 'general',
+    hours: [1, 2, 3, 6, 12].includes(Number(b.hours)) ? Number(b.hours) : cur.hours || 3,
+  };
+  newsFailAt = 0;
+  changed(); res.json({ ok: true });
+  refreshNews(true);
+});
+app.post('/api/admin/news/test', async (req, res) => {
+  const b = req.body || {};
+  const key = (b.key || newsKey() || '').trim();
+  if (!key) return res.status(400).json({ error: 'Önce API anahtarını girin' });
+  try { const items = await fetchNews(key, ['general', 'economy', 'sport', 'technology'].includes(b.tag) ? b.tag : 'general'); res.json({ ok: true, count: items.length, sample: items.slice(0, 2) }); }
+  catch (e) { res.status(502).json({ error: e.message }); }
+});
 app.get('/api/admin/cache', (_, res) => {
   const age = k => (cache[k] ? Math.round((Date.now() - cache[k].at) / 60000) : null);
   res.json({
     hava: age('weather'), doviz: age('rates:fx'), altin: age('rates:gold'), maclar: age('matches'),
     tarihteBugun: onThisDay ? onThisDay.date : null,
+    haber: news ? { adet: news.items.length, dk: age('news'), hata: newsError } : (newsError ? { hata: newsError } : null),
+    collectBugun: collectStats.day === ymd(new Date()) ? collectStats.n : 0,
     nobetci: pharmacies ? { duty: pharmacies.duty, adet: pharmacies.items.length, guncel: pharmacies.duty === dutyDay() } : null, nobetciHata: pharmError,
     puanDurumu: Object.fromEntries([...standings.keys()].map(c => [c, age('standings:' + c)])),
   });

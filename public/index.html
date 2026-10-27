@@ -37,6 +37,8 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 #logo{width:100%;aspect-ratio:1285/327;background:url(/logo.png) center/100% 100% no-repeat;border-radius:12px;flex:none;box-shadow:0 1vh 3vh rgba(0,0,0,.4)}
 #matches{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 #mhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.6vh;padding:0 .3vw}
+#mhead h2.long{font-size:1.45vh;letter-spacing:.18em}
+#mhead h2.long em{margin-left:.5vw;letter-spacing:.14em}
 #mhead h2 em{font-style:normal;font-size:1.25vh;color:var(--accent2);letter-spacing:.2em;margin-left:.8vw;font-weight:600}
 #mhead h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-size:1.7vh;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--soft)}
 #dots{display:flex;gap:.45vw;flex:none;margin-left:1vw}
@@ -67,6 +69,9 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 .ph .pa{font-size:1.5vh;color:var(--soft);margin-top:.4vh;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .ph .pt2{font-size:1.75vh;color:var(--accent2);font-weight:700;margin-top:.5vh;letter-spacing:.05em}
 .ph .pd{color:var(--mute);font-weight:500;font-size:1.3vh;letter-spacing:.12em;text-transform:uppercase;margin-left:.6vw}
+.nw{padding:1.2vh .9vw}
+.nw .nt{font-size:1.85vh;font-weight:700;line-height:1.28;color:var(--white);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nw .nm2{font-size:1.3vh;color:var(--accent2);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-top:.6vh}
 .od{display:flex;gap:1vw;align-items:flex-start;padding:1.2vh .9vw}
 .od .oy{font-size:3vh;font-weight:800;color:var(--accent2);min-width:7vh;line-height:1.05}
 .od p{font-size:1.65vh;line-height:1.35;color:var(--white);display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
@@ -113,15 +118,15 @@ position:absolute;top:.8vh;right:.8vw}
 #wx .wd small{display:block;font-size:1.3vh;color:var(--mute);margin-top:.3vh;letter-spacing:.04em}
 #wx .city{font-size:1.2vh;letter-spacing:.28em;color:var(--accent2);font-weight:600;text-transform:uppercase;text-align:right}
 #wx .city small{display:block;letter-spacing:.04em;color:var(--mute);font-weight:400;text-transform:none;margin-top:.3vh;font-size:1.2vh}
-#rrow{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);padding-top:.9vh}
-#rrow div{text-align:center;border-right:1px solid var(--line)}
+#rrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));min-height:5.6vh;border-top:1px solid var(--line);padding-top:.9vh}
+#rrow div{min-width:0;overflow:hidden;text-align:center;border-right:1px solid var(--line)}
 #rrow div:last-child{border:0}
 #rrow.swap{transition:opacity .4s}
 #rrow.swap.out{opacity:0}
 .chg{font-style:normal;font-weight:700;letter-spacing:0;margin-left:.35vw;font-size:1.05vh}
 .chg.up{color:#3ecf4a}.chg.dn{color:#ff6b6b}.chg.fl{color:var(--mute)}
-#rrow small{display:block;font-size:1.1vh;letter-spacing:.22em;color:var(--accent2);font-weight:600}
-#rrow strong{font-size:2.1vh;font-weight:600;white-space:nowrap}
+#rrow small{display:block;white-space:nowrap;overflow:hidden;font-size:1.05vh;letter-spacing:.12em;color:var(--accent2);font-weight:600}
+#rrow strong{display:block;font-size:2.1vh;font-weight:600;white-space:nowrap;overflow:hidden}
 #rrow strong i{font-style:normal;font-size:1.3vh;color:var(--mute);margin-left:.15vw;font-weight:400}
 #goal{position:absolute;inset:0;z-index:6;border-radius:16px;overflow:hidden;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2vh 1.2vw;
 background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100%);border:1px solid rgba(255,230,190,.6);box-shadow:0 0 6vh rgba(201,149,92,.55)}
@@ -287,8 +292,11 @@ function tableHtml(rows) {
   return '<div class="tbl"><div class="th"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AV</span><span>P</span></div>' +
     rows.map(r => `<div class="trw ${r.rank === 1 ? 'top1' : ''}"><span class="rk">${esc(r.rank)}</span><span class="tn">${r.logo ? `<img src="${esc(r.logo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : ''}<b>${esc(r.name)}</b></span><span>${esc(r.gp)}</span><span>${esc(r.w)}</span><span>${esc(r.d)}</span><span>${esc(r.l)}</span><span>${esc(r.gd)}</span><span class="pt">${esc(r.pts)}</span></div>`).join('') + '</div>';
 }
-let pharmData = null, showPharm = true, otdData = null, showOtd = true;
-const pharmCard = p => `<div class="m ph"><div class="pn">${esc(p.name)}</div><div class="pa">${esc(p.address)}</div><div class="pt2">${p.phone ? '☎ ' + esc(p.phone) : ''}${pharmData && pharmData.districts.length > 1 ? `<span class="pd">${esc(p.district)}</span>` : ''}</div></div>`;
+let pharmData = null, showPharm = true, otdData = null, showOtd = true, newsData = null, showNews = true;
+const pharmCard = p => `<div class="m ph"><div class="pn">${esc(p.name)}</div><div class="pa">${esc(p.address)}</div><div class="pt2">${p.phone ? '☎ ' + esc(fmtPhone(p.phone)) : ''}${pharmData && pharmData.districts.length > 1 ? `<span class="pd">${esc(p.district)}</span>` : ''}</div></div>`;
+const fmtPhone = t => { const d = String(t || '').replace(/\D/g, ''); return /^0\d{10}$/.test(d) ? `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}` : String(t || ''); };
+const ago = iso => { const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return !isFinite(m) || m < 0 ? '' : m < 1 ? 'az önce' : m < 60 ? m + ' dk önce' : m < 1440 ? Math.floor(m / 60) + ' saat önce' : Math.floor(m / 1440) + ' gün önce'; };
+const newsCard = n => `<div class="m nw"><div class="nt">${esc(n.title)}</div><div class="nm2">${esc(n.source)}${n.date ? ' · ' + esc(ago(n.date)) : ''}</div></div>`;
 const dayCard = e => `<div class="m od"><b class="oy">${esc(e.year)}</b><p>${esc(e.text)}</p></div>`;
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 function fit() {
@@ -340,11 +348,15 @@ function buildPages() {
     const ch = paginate(pharmData.items, pharmCard);
     ch.forEach((items, i) => pages.push({ type: 'pharm', items, part: i + 1, parts: ch.length }));
   }
+  if (showNews && newsData && newsData.items.length) {
+    const ch = paginate(newsData.items, newsCard);
+    ch.forEach((items, i) => pages.push({ type: 'news', items, part: i + 1, parts: ch.length }));
+  }
   if (showOtd && otdData && otdData.items.length) {
     const ch = paginate(otdData.items, dayCard);
     ch.forEach((items, i) => pages.push({ type: 'otd', items, part: i + 1, parts: ch.length, date: otdData.date }));
   }
-  if (!pages.some(p => p.type === 'league' || p.type === 'pharm' || p.type === 'otd')) pages.unshift({ type: 'empty' });
+  if (!pages.some(p => p.type === 'league' || p.type === 'pharm' || p.type === 'otd' || p.type === 'news')) pages.unshift({ type: 'empty' });
   pages.push({ type: 'traffic' });
 }
 function loadTraffic() {
@@ -367,10 +379,12 @@ function render() {
   const isTraffic = pg.type === 'traffic';
   tr.style.visibility = isTraffic ? 'visible' : 'hidden';
   list.style.display = isTraffic ? 'none' : 'flex';
-  document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
+  document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'news' ? `Gündem<em>TÜRKİYE${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
+  document.getElementById('mtitle').classList.toggle('long', document.getElementById('mtitle').textContent.length > 20);
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
   else if (pg.type === 'pharm') list.innerHTML = pg.items.map(pharmCard).join('');
+  else if (pg.type === 'news') list.innerHTML = pg.items.map(newsCard).join('');
   else if (pg.type === 'otd') list.innerHTML = pg.items.map(dayCard).join('');
   else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
   dots.innerHTML = pages.length > 6 ? `<span class="cnt">${page + 1} / ${pages.length}</span>` : pages.length > 1 ? pages.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('') : '';
@@ -384,7 +398,7 @@ function tick() {
 function schedule() {
   clearTimeout(rot);
   const ty = pages[page] && pages[page].type;
-  rot = setTimeout(tick, ty === 'traffic' ? TRAFFIC_MS : (ty === 'pharm' || ty === 'otd') ? 13000 : PAGE_MS);
+  rot = setTimeout(tick, ty === 'traffic' ? TRAFFIC_MS : (ty === 'pharm' || ty === 'otd' || ty === 'news') ? 13000 : PAGE_MS);
 }
 addEventListener('resize', () => { fit(); render(); });
 function setMatches(list, st, show) {
@@ -481,8 +495,8 @@ function setState(s) {
   videos = s.videos; imageSeconds = s.imageSeconds || 10;
   if (changed) { prepared = { id: null }; const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
   if (current === null && videos.length) play();
-  const infoSig = JSON.stringify([s.pharmacies, s.showPharmacy, s.onThisDay, s.showOnThisDay]);
-  if (infoSig !== window.__infoSig) { window.__infoSig = infoSig; pharmData = s.pharmacies; showPharm = s.showPharmacy !== false; otdData = s.onThisDay; showOtd = s.showOnThisDay !== false; window.__forceRender = true; }
+  const infoSig = JSON.stringify([s.pharmacies, s.showPharmacy, s.onThisDay, s.showOnThisDay, s.news, s.showNews]);
+  if (infoSig !== window.__infoSig) { window.__infoSig = infoSig; pharmData = s.pharmacies; showPharm = s.showPharmacy !== false; otdData = s.onThisDay; showOtd = s.showOnThisDay !== false; newsData = s.news; showNews = s.showNews !== false; window.__forceRender = true; }
   setMatches(s.matches, s.standings, s.showStandings);
   setTicker(s.matches);
   setRates(s.rates);

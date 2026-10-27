@@ -281,6 +281,18 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <p id="phres" class="hint" style="margin:12px 0 0"></p>
   </div>
   <div class="card">
+    <h2>Haberler (Türkiye)</h2>
+    <p class="hint">Türkiye'nin güncel haber başlıklarını (başlık, kaynak, ne kadar önce) sağ panelde gösterir. Nöbetçi eczane ile <b>aynı CollectAPI anahtarı</b> kullanılabilir; anahtar kutusunu boş bırakırsanız eczane anahtarı kullanılır. Servisin kotasını kendi sayfanızdan kontrol edin; kota korunsun diye haberler yalnızca seçtiğiniz aralıkta yenilenir.</p>
+    <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="nwen" onchange="saveNews()"><i></i></label><div class="body"><b>Haber sayfasını ekranda göster</b></div></div>
+    <div class="row">
+      <div class="fld" style="max-width:220px"><label class="f">Kategori</label><select id="nwtag"><option value="general">Genel</option><option value="economy">Ekonomi</option><option value="sport">Spor</option><option value="technology">Teknoloji</option></select></div>
+      <div class="fld" style="max-width:220px"><label class="f">Yenileme aralığı</label><select id="nwhours"><option value="1">1 saatte bir</option><option value="2">2 saatte bir</option><option value="3">3 saatte bir</option><option value="6">6 saatte bir</option><option value="12">12 saatte bir</option></select></div>
+      <div class="fld"><label class="f">Ayrı API anahtarı (boşsa eczane anahtarı)</label><input type="password" id="nwkey" autocomplete="off"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn" onclick="saveNews(true)">Kaydet</button><button class="btn ghost" onclick="testNews()">Test et</button></div>
+    <p id="nwres" class="hint" style="margin:12px 0 0"></p>
+  </div>
+  <div class="card">
     <h2>Tarihte Bugün</h2>
     <p class="hint">Vikipedi'den (Türkçe) bugünün tarihinde yaşanmış 6 olay. Anahtar gerekmez, günde bir kez çekilir.</p>
     <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="otden" onchange="api('PUT','/options',{showOnThisDay:this.checked},this.checked?'Tarihte bugün açıldı':'Tarihte bugün kapatıldı')"><i></i></label><div class="body"><b>Tarihte bugün sayfasını ekranda göster</b></div></div>
@@ -516,6 +528,7 @@ function pollProcessing() {
 function renderInfo() {
   const c = db.pharmacy || {};
   $('phen').checked = c.enabled !== false; $('phil').value = c.il || 'İstanbul'; $('phdist').value = (c.districts || []).join(', '); $('phkey').value = c.key || '';
+  const nc = db.news || {}; $('nwen').checked = nc.enabled !== false; $('nwtag').value = nc.tag || 'general'; $('nwhours').value = String(nc.hours || 3); $('nwkey').value = nc.key || '';
   $('otden').checked = db.showOnThisDay !== false;
   const o = pub.onThisDay;
   $('otdlist').innerHTML = o && o.items.length ? o.items.map(e => `<div class="item"><b style="color:var(--accent2);min-width:56px">${esc(e.year)}</b><div class="body"><span style="white-space:normal;color:var(--text)">${esc(e.text)}</span></div></div>`).join('') : '<div class="empty">Bugünün listesi henüz alınmadı.</div>';
@@ -527,10 +540,21 @@ async function loadFresh() {
     const ago = m => m == null ? '—' : m < 1 ? 'az önce' : m < 60 ? m + ' dk önce' : Math.round(m / 60) + ' saat önce';
     const rows = [['Hava durumu', ago(f.hava), 'her 30 dk'], ['Döviz (USD/EUR)', ago(f.doviz), 'saatte bir'], ['Altın', ago(f.altin), 'her 15 dk'], ['Maç listesi', ago(f.maclar), 'canlıda 25 sn, yaklaşan maçta 2 dk, aksi 10 dk'],
       ['Tarihte bugün', f.tarihteBugun || '—', 'günde bir'],
+      ['Haberler', f.haber ? (f.haber.adet ? `${f.haber.adet} haber · ${ago(f.haber.dk)}` : '—') + (f.haber.hata ? ' · Hata: ' + f.haber.hata : '') : '—', 'seçtiğiniz aralıkta'],
+      ['Servis isteği (CollectAPI)', `bugün ${f.collectBugun || 0} istek`, 'eczane + haber'],
       ['Nöbetçi eczane', f.nobetci ? `${f.nobetci.adet} eczane · nöbet günü ${f.nobetci.duty}${f.nobetci.guncel ? '' : ' (ESKİ, gösterilmiyor)'}` : '—', 'nöbet günü başına bir'],
       ['Puan durumu', Object.keys(f.puanDurumu || {}).length ? Object.entries(f.puanDurumu).map(([k, v]) => k + ': ' + ago(v)).join(' · ') : '—', '6 saatte bir ya da maç bitince']];
     $('freshness').innerHTML = rows.map(r => `<div class="item"><div class="body"><b>${esc(r[0])}</b><span style="white-space:normal">${esc(r[1])}</span></div><span style="color:var(--mute);font-size:12px">${esc(r[2])}</span></div>`).join('') + (f.nobetciHata ? `<p class="hint" style="color:var(--bad)">Nöbetçi eczane hatası: ${esc(f.nobetciHata)}</p>` : '');
   } catch (e) {}
+}
+function saveNews(manual) { return api('PUT', '/news', { enabled: $('nwen').checked, tag: $('nwtag').value, hours: Number($('nwhours').value), key: $('nwkey').value.trim() }, manual ? 'Haber ayarları kaydedildi' : ($('nwen').checked ? 'Haber sayfası açıldı' : 'Haber sayfası kapatıldı')); }
+async function testNews() {
+  const out = $('nwres'); out.textContent = 'Deneniyor… (servis istekleri aralıklı kabul ettiği için 20 saniyeye kadar sürebilir)';
+  try {
+    const r = await fetch('/api/admin/news/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: $('nwkey').value.trim(), tag: $('nwtag').value }) });
+    const j = await r.json();
+    out.innerHTML = r.ok ? `✅ Çalışıyor: ${j.count} haber alındı${j.sample[0] ? ` (örn. “${esc(j.sample[0].title)}”)` : ''}.` : '❌ ' + esc(j.error || r.status);
+  } catch (e) { out.textContent = '❌ ' + e.message; }
 }
 const parseDist = () => $('phdist').value.split(',').map(x => x.trim()).filter(Boolean).slice(0, 6);
 function savePharm(manual) { return api('PUT', '/pharmacy', { enabled: $('phen').checked, il: $('phil').value.trim(), districts: parseDist(), key: $('phkey').value.trim() }, manual ? 'Eczane ayarları kaydedildi' : ($('phen').checked ? 'Eczane sayfası açıldı' : 'Eczane sayfası kapatıldı')); }
