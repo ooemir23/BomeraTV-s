@@ -263,13 +263,22 @@ setInterval(refreshOnThisDay, 30 * MIN);
 const PHARM_BASE = process.env.PHARMACY_BASE || 'https://api.collectapi.com';
 const dutyDay = () => ymd(new Date(Date.now() - 9 * HOUR)); // nöbet sabah 09:00'da değişir
 let pharmacies = cacheGet('pharmacies');
-let pharmError = '';
+let pharmError = '', pharmFailAt = 0;
 const pharmCfg = () => db.pharmacy || {};
 const pharmSig = () => JSON.stringify([pharmCfg().il || 'İstanbul', pharmCfg().districts || []]);
 // CollectAPI: istek sınırı ~16 sn'de bir, bu yüzden tüm çağrılar bu sıralayıcıdan geçer
 const collectStats = { day: '', n: 0, lastError: '' };
+// Ücretsiz plan aylık kotaları (güvenlik payıyla): eczane 100, haber 1000
+const QUOTA = { pharm: { limit: 100, cap: 92 }, news: { limit: 1000, cap: 960 } };
+const monthKey = () => ymd(new Date()).slice(0, 7);
+let quota = cacheGet('quota') || {};
+if (quota.month !== monthKey()) quota = { month: monthKey(), pharm: 0, news: 0 };
+const quotaLeft = svc => QUOTA[svc].cap - (quota.month === monthKey() ? quota[svc] || 0 : 0);
 let collectNext = 0;
-async function collectFetch(url, key) {
+async function collectFetch(url, key, svc) {
+  if (quota.month !== monthKey()) quota = { month: monthKey(), pharm: 0, news: 0 };
+  if (svc && quotaLeft(svc) <= 0) throw new Error(`Aylık ücretsiz kota doldu (${svc === 'pharm' ? 'eczane' : 'haber'}: ${quota[svc]}/${QUOTA[svc].limit}). Ay başında sıfırlanır.`);
+  if (svc) { quota[svc] = (quota[svc] || 0) + 1; cachePut('quota', quota); }
   const t = Math.max(Date.now(), collectNext);
   collectNext = t + 17000;
   if (t > Date.now()) await new Promise(r => setTimeout(r, t - Date.now()));
@@ -285,7 +294,7 @@ async function collectFetch(url, key) {
 async function fetchPharmacies(cfg) {
   const out = [];
   for (const d of cfg.districts) {
-    const j = await collectFetch(`${PHARM_BASE}/health/dutyPharmacy?ilce=${encodeURIComponent(d)}&il=${encodeURIComponent(cfg.il || 'İstanbul')}`, cfg.key);
+    const j = await collectFetch(`${PHARM_BASE}/health/dutyPharmacy?ilce=${encodeURIComponent(d)}&il=${encodeURIComponent(cfg.il || 'İstanbul')}`, cfg.key, 'pharm');
     for (const p of j.result || []) out.push({ district: p.dist || p.district || d, name: p.name || p.pharmacyName || '', address: p.address || '', phone: p.phone || '' });
   }
   return out;
@@ -295,6 +304,7 @@ async function refreshPharmacies(force) {
   if (!cfg.key || !(cfg.districts || []).length) { if (pharmacies) { pharmacies = null; broadcast({ type: 'state', state: publicState() }); } return; }
   const duty = dutyDay(), sig = pharmSig();
   if (!force && pharmacies && pharmacies.duty === duty && pharmacies.sig === sig && pharmacies.items.length) return; // bu nöbet günü için elde (boş liste sayılmaz)
+  if (!force && Date.now() - pharmFailAt < 3 * HOUR) return; // hata/boş sonrası 3 saat bekle (kotayı yakma)
   try {
     const items = await fetchPharmacies(cfg);
     if (!items.length) throw new Error('Servis boş liste döndürdü, yeniden denenecek');
@@ -302,7 +312,7 @@ async function refreshPharmacies(force) {
     pharmError = '';
     cachePut('pharmacies', pharmacies);
     broadcast({ type: 'state', state: publicState() });
-  } catch (e) { pharmError = e.message; console.error('Nöbetçi eczane alınamadı:', e.message); }
+  } catch (e) { pharmError = e.message; pharmFailAt = Date.now(); console.error('Nöbetçi eczane alınamadı:', e.message); }
 }
 
 // ---- Haberler (CollectAPI, Türkiye): ayarlanabilir aralıkta (varsayılan 3 saat), önbellekli ----
@@ -311,7 +321,7 @@ const newsKey = () => newsCfg().key || pharmCfg().key || ''; // ayrı anahtar gi
 let news = cacheGet('news');
 let newsError = '', newsFailAt = 0;
 async function fetchNews(key, tag) {
-  const j = await collectFetch(`${PHARM_BASE}/news/getNews?country=tr&tag=${encodeURIComponent(tag || 'general')}`, key);
+  const j = await collectFetch(`${PHARM_BASE}/news/getNews?country=tr&tag=${encodeURIComponent(tag || 'general')}`, key, 'news');
   const seen = new Set(), items = [];
   for (const n of j.result || []) {
     const title = String(n.name || '').trim();
@@ -328,7 +338,7 @@ async function refreshNews(force) {
   if (!key || cfg.enabled === false) return;
   const ttl = Math.max(1, Math.min(12, Number(cfg.hours) || 3)) * HOUR;
   if (!force && news && news.tag === (cfg.tag || 'general') && cacheAge('news') < ttl) return; // taze
-  if (!force && Date.now() - newsFailAt < 30 * MIN) return; // hata sonrası 30 dk bekle (kotayı yakma)
+  if (!force && Date.now() - newsFailAt < 60 * MIN) return; // hata sonrası 1 saat bekle (kotayı yakma)
   try {
     const items = await fetchNews(key, cfg.tag || 'general');
     news = { tag: cfg.tag || 'general', items, updated: new Date().toISOString() };
@@ -609,7 +619,7 @@ app.delete('/api/admin/qrs/:id', (req, res) => {
 });
 app.put('/api/admin/pharmacy', (req, res) => {
   const b = req.body || {}, cur = pharmCfg();
-  const districts = Array.isArray(b.districts) ? b.districts.map(x => String(x).trim()).filter(Boolean).slice(0, 6) : cur.districts;
+  const districts = Array.isArray(b.districts) ? b.districts.map(x => String(x).trim()).filter(Boolean).slice(0, 2) : cur.districts;
   db.pharmacy = {
     enabled: typeof b.enabled === 'boolean' ? b.enabled : cur.enabled !== false,
     key: typeof b.key === 'string' ? b.key.trim().slice(0, 120) : cur.key || '',
@@ -621,7 +631,7 @@ app.put('/api/admin/pharmacy', (req, res) => {
 });
 app.post('/api/admin/pharmacy/test', async (req, res) => {
   const b = req.body || {}, cur = pharmCfg();
-  const cfg = { key: (b.key || cur.key || '').trim(), il: (b.il || cur.il || 'İstanbul').trim(), districts: (Array.isArray(b.districts) && b.districts.length ? b.districts : cur.districts || []).map(x => String(x).trim()).filter(Boolean).slice(0, 6) };
+  const cfg = { key: (b.key || cur.key || '').trim(), il: (b.il || cur.il || 'İstanbul').trim(), districts: (Array.isArray(b.districts) && b.districts.length ? b.districts : cur.districts || []).map(x => String(x).trim()).filter(Boolean).slice(0, 2) };
   if (!cfg.key) return res.status(400).json({ error: 'Önce API anahtarını girin' });
   if (!cfg.districts.length) return res.status(400).json({ error: 'En az bir ilçe girin' });
   try { const items = await fetchPharmacies(cfg); res.json({ ok: true, count: items.length, sample: items.slice(0, 3) }); }
@@ -654,6 +664,7 @@ app.get('/api/admin/cache', (_, res) => {
     tarihteBugun: onThisDay ? onThisDay.date : null,
     harita: { dk: mapAt ? Math.round((Date.now() - mapAt) / 60000) : null, hata: mapErr },
     haber: news ? { adet: news.items.length, dk: age('news'), hata: newsError } : (newsError ? { hata: newsError } : null),
+    kota: { eczane: `${quota.month === monthKey() ? quota.pharm : 0}/${QUOTA.pharm.limit}`, haber: `${quota.month === monthKey() ? quota.news : 0}/${QUOTA.news.limit}` },
     collectBugun: collectStats.day === ymd(new Date()) ? collectStats.n : 0,
     nobetci: pharmacies ? { duty: pharmacies.duty, adet: pharmacies.items.length, guncel: pharmacies.duty === dutyDay() } : null, nobetciHata: pharmError,
     puanDurumu: Object.fromEntries([...standings.keys()].map(c => [c, age('standings:' + c)])),

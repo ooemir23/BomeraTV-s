@@ -565,7 +565,8 @@ async function loadFresh() {
     const rows = [['Hava durumu', ago(f.hava), 'her 30 dk'], ['Döviz (USD/EUR)', ago(f.doviz), 'saatte bir'], ['Altın', ago(f.altin), 'her 15 dk'], ['Maç listesi', ago(f.maclar), 'canlıda 25 sn, yaklaşan maçta 2 dk, aksi 10 dk'],
       ['Tarihte bugün', f.tarihteBugun || '—', 'günde bir'],
       ['Haberler', f.haber ? (f.haber.adet ? `${f.haber.adet} haber · ${ago(f.haber.dk)}` : '—') + (f.haber.hata ? ' · Hata: ' + f.haber.hata : '') : '—', 'seçtiğiniz aralıkta'],
-      ['Servis isteği (CollectAPI)', `bugün ${f.collectBugun || 0} istek`, 'eczane + haber'],
+      ['Eczane kotası (aylık)', f.kota ? f.kota.eczane : '-', 'ücretsiz plan 100'],
+      ['Haber kotası (aylık)', f.kota ? f.kota.haber : '-', 'ücretsiz plan 1000'],
       ['Nöbetçi eczane', f.nobetci ? `${f.nobetci.adet} eczane · nöbet günü ${f.nobetci.duty}${f.nobetci.guncel ? '' : ' (ESKİ, gösterilmiyor)'}` : '—', 'nöbet günü başına bir'],
       ['Puan durumu', Object.keys(f.puanDurumu || {}).length ? Object.entries(f.puanDurumu).map(([k, v]) => k + ': ' + ago(v)).join(' · ') : '—', '6 saatte bir ya da maç bitince']];
     $('freshness').innerHTML = rows.map(r => `<div class="item"><div class="body"><b>${esc(r[0])}</b><span style="white-space:normal">${esc(r[1])}</span></div><span style="color:var(--mute);font-size:12px">${esc(r[2])}</span></div>`).join('') + (f.nobetciHata ? `<p class="hint" style="color:var(--bad)">Nöbetçi eczane hatası: ${esc(f.nobetciHata)}</p>` : '');
