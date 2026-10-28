@@ -269,14 +269,14 @@ const pharmSig = () => JSON.stringify([pharmCfg().il || 'İstanbul', pharmCfg().
 // CollectAPI: istek sınırı ~16 sn'de bir, bu yüzden tüm çağrılar bu sıralayıcıdan geçer
 const collectStats = { day: '', n: 0, lastError: '' };
 // Ücretsiz plan aylık kotaları (güvenlik payıyla): eczane 100, haber 1000
-const QUOTA = { pharm: { limit: 100, cap: 92 }, news: { limit: 1000, cap: 960 } };
+const QUOTA = { pharm: { limit: 100, cap: 92 }, news: { limit: 1000, cap: 960 }, books: { limit: 1000, cap: 150 } };
 const monthKey = () => ymd(new Date()).slice(0, 7);
 let quota = cacheGet('quota') || {};
-if (quota.month !== monthKey()) quota = { month: monthKey(), pharm: 0, news: 0 };
+if (quota.month !== monthKey()) quota = { month: monthKey(), pharm: 0, news: 0, books: 0 };
 const quotaLeft = svc => QUOTA[svc].cap - (quota.month === monthKey() ? quota[svc] || 0 : 0);
 let collectNext = 0;
 async function collectFetch(url, key, svc) {
-  if (quota.month !== monthKey()) quota = { month: monthKey(), pharm: 0, news: 0 };
+  if (quota.month !== monthKey()) quota = { month: monthKey(), pharm: 0, news: 0, books: 0 };
   if (svc && quotaLeft(svc) <= 0) throw new Error(`Aylık ücretsiz kota doldu (${svc === 'pharm' ? 'eczane' : 'haber'}: ${quota[svc]}/${QUOTA[svc].limit}). Ay başında sıfırlanır.`);
   if (svc) { quota[svc] = (quota[svc] || 0) + 1; cachePut('quota', quota); }
   const t = Math.max(Date.now(), collectNext);
@@ -346,6 +346,33 @@ async function refreshNews(force) {
     broadcast({ type: 'state', state: publicState() });
   } catch (e) { newsError = e.message; newsFailAt = Date.now(); console.error('Haber alınamadı:', e.message); }
 }
+// ---- Yeni çıkan kitaplar (CollectAPI /book/newBook): günde bir kez ----
+let books = cacheGet('books');
+let booksError = '', booksFailAt = 0;
+async function refreshBooks(force) {
+  const key = newsKey();
+  if (!key || db.showBooks === false) return;
+  if (!force && books && cacheAge('books') < 24 * HOUR) return;
+  if (!force && Date.now() - booksFailAt < 3 * HOUR) return;
+  try {
+    const j = await collectFetch(`${PHARM_BASE}/book/newBook`, key, 'books');
+    const seen = new Set(), items = [];
+    for (const b of j.result || []) {
+      const title = String(b.title || '').trim();
+      if (!title || seen.has(title)) continue;
+      seen.add(title);
+      items.push({ title, author: String(b.yazar || '').trim(), publisher: String(b['yayın'] || b.yayin || '').trim(), price: String(b.indirim || b.fiyat || '').trim(), oldPrice: b.fiyat && b.indirim && b.fiyat !== b.indirim ? String(b.fiyat).trim() : '' });
+      if (items.length >= 8) break;
+    }
+    if (!items.length) throw new Error('kitap listesi boş');
+    books = { items, updated: new Date().toISOString() };
+    booksError = ''; cachePut('books', books);
+    broadcast({ type: 'state', state: publicState() });
+  } catch (e) { booksError = e.message; booksFailAt = Date.now(); console.error('Kitaplar alınamadı:', e.message); }
+}
+setTimeout(refreshBooks, 9000);
+setInterval(refreshBooks, 30 * MIN);
+
 setTimeout(refreshNews, 6000);
 setInterval(refreshNews, 10 * MIN); // yalnızca süre dolunca ağa gider
 
@@ -465,6 +492,8 @@ const publicState = () => ({
   showOnThisDay: db.showOnThisDay !== false,
   onThisDay: onThisDay && onThisDay.date === ymd(new Date()) ? onThisDay : null,
   showNews: newsCfg().enabled !== false,
+  showBooks: db.showBooks !== false,
+  books: books && Date.now() - Date.parse(books.updated) < 72 * HOUR ? { items: books.items } : null,
   news: news && Date.now() - Date.parse(news.updated) < 12 * HOUR ? { items: news.items } : null, // 12 saatten eski haber gösterilmez
   showPharmacy: pharmCfg().enabled !== false,
   pharmacies: pharmacies && pharmacies.duty === dutyDay() && pharmacies.sig === pharmSig() ? { items: pharmacies.items, districts: pharmCfg().districts || [] } : null, // dünkü nöbet listesi gösterilmez
@@ -664,7 +693,8 @@ app.get('/api/admin/cache', (_, res) => {
     tarihteBugun: onThisDay ? onThisDay.date : null,
     harita: { dk: mapAt ? Math.round((Date.now() - mapAt) / 60000) : null, hata: mapErr },
     haber: news ? { adet: news.items.length, dk: age('news'), hata: newsError } : (newsError ? { hata: newsError } : null),
-    kota: { eczane: `${quota.month === monthKey() ? quota.pharm : 0}/${QUOTA.pharm.limit}`, haber: `${quota.month === monthKey() ? quota.news : 0}/${QUOTA.news.limit}` },
+    kitap: books ? { adet: books.items.length, dk: age('books'), hata: booksError } : (booksError ? { hata: booksError } : null),
+    kota: { eczane: `${quota.month === monthKey() ? quota.pharm : 0}/${QUOTA.pharm.limit}`, haber: `${quota.month === monthKey() ? quota.news : 0}/${QUOTA.news.limit}`, kitap: `${quota.month === monthKey() ? quota.books || 0 : 0}` },
     collectBugun: collectStats.day === ymd(new Date()) ? collectStats.n : 0,
     nobetci: pharmacies ? { duty: pharmacies.duty, adet: pharmacies.items.length, guncel: pharmacies.duty === dutyDay() } : null, nobetciHata: pharmError,
     puanDurumu: Object.fromEntries([...standings.keys()].map(c => [c, age('standings:' + c)])),
@@ -698,6 +728,7 @@ app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
   if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
   if (typeof req.body.showOnThisDay === 'boolean') db.showOnThisDay = req.body.showOnThisDay;
+  if (typeof req.body.showBooks === 'boolean') { db.showBooks = req.body.showBooks; if (db.showBooks) refreshBooks(); }
   if (['auto', 'lite', 'full'].includes(req.body.fxMode)) db.fxMode = req.body.fxMode;
   if (req.body.safeInset !== undefined && isFinite(Number(req.body.safeInset))) db.safeInset = Math.max(0, Math.min(12, Math.round(Number(req.body.safeInset) * 2) / 2));
   for (const k of ['L', 'R', 'T', 'B']) {

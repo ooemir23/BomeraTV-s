@@ -77,6 +77,10 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 .ph .pd{color:var(--mute);font-weight:500;font-size:1.3vh;letter-spacing:.12em;text-transform:uppercase;margin-left:.6vw}
 .nw{padding:1.2vh .9vw}
 .nw .nt{font-size:1.85vh;font-weight:700;line-height:1.28;color:var(--white);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bk{padding:1.2vh .9vw}
+.bk .bt{font-size:1.85vh;font-weight:700;line-height:1.28;color:var(--white);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bk .bm{font-size:1.35vh;color:var(--accent2);font-weight:600;margin-top:.5vh;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk .bp{margin-top:.6vh;font-size:2vh;color:var(--white)}.bk .bp s{opacity:.55;font-size:1.4vh;margin-right:.6vw}.bk .bp b{font-weight:800}
 .nw .nm2{font-size:1.3vh;color:var(--accent2);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-top:.6vh}
 .od{display:flex;gap:1vw;align-items:flex-start;padding:1.2vh .9vw}
 .od .oy{font-size:3vh;font-weight:800;color:var(--accent2);min-width:7vh;line-height:1.05}
@@ -303,11 +307,12 @@ function tableHtml(rows) {
     rows.map(r => `<div class="trw ${r.rank === 1 ? 'top1' : ''}"><span class="rk">${esc(r.rank)}</span><span class="tn">${r.logo ? `<img src="${esc(r.logo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : ''}<b>${esc(r.name)}</b></span><span>${esc(r.gp)}</span><span>${esc(r.w)}</span><span>${esc(r.d)}</span><span>${esc(r.l)}</span><span>${esc(r.gd)}</span><span class="pt">${esc(r.pts)}</span></div>`).join('') + '</div>';
 }
 let pagesDirty = true; // sayfa listesi yalnızca veri ya da ölçü değişince yeniden hesaplanır (her geçişte değil)
-let pharmData = null, showPharm = true, otdData = null, showOtd = true, newsData = null, showNews = true;
+let pharmData = null, showPharm = true, otdData = null, showOtd = true, newsData = null, showNews = true, booksData = null, showBooks = true;
 const pharmCard = p => `<div class="m ph"><div class="pn">${esc(p.name)}</div><div class="pa">${esc(p.address)}</div><div class="pt2">${p.phone ? '☎ ' + esc(fmtPhone(p.phone)) : ''}${pharmData && pharmData.districts.length > 1 ? `<span class="pd">${esc(p.district)}</span>` : ''}</div></div>`;
 const fmtPhone = t => { const d = String(t || '').replace(/\D/g, ''); return /^0\d{10}$/.test(d) ? `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}` : String(t || ''); };
 const ago = iso => { const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return !isFinite(m) || m < 0 ? '' : m < 1 ? 'az önce' : m < 60 ? m + ' dk önce' : m < 1440 ? Math.floor(m / 60) + ' saat önce' : Math.floor(m / 1440) + ' gün önce'; };
 const newsCard = n => `<div class="m nw"><div class="nt">${esc(n.title)}</div><div class="nm2">${esc(n.source)}${n.date ? ' · ' + esc(ago(n.date)) : ''}</div></div>`;
+const bookCard = b => `<div class="m bk"><div class="bt">${esc(b.title)}</div><div class="bm">${esc([b.author, b.publisher].filter(Boolean).join(' · '))}</div><div class="bp">${b.oldPrice ? `<s>${esc(b.oldPrice)}</s>` : ''}<b>${esc(b.price)}</b></div></div>`;
 const dayCard = e => `<div class="m od"><b class="oy">${esc(e.year)}</b><p>${esc(e.text)}</p></div>`;
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 function fit() {
@@ -363,11 +368,15 @@ function buildPages() {
     const ch = paginate(newsData.items, newsCard);
     ch.forEach((items, i) => pages.push({ type: 'news', items, part: i + 1, parts: ch.length }));
   }
+  if (showBooks && booksData && booksData.items.length) {
+    const ch = paginate(booksData.items, bookCard);
+    ch.forEach((items, i) => pages.push({ type: 'books', items, part: i + 1, parts: ch.length }));
+  }
   if (showOtd && otdData && otdData.items.length) {
     const ch = paginate(otdData.items, dayCard);
     ch.forEach((items, i) => pages.push({ type: 'otd', items, part: i + 1, parts: ch.length, date: otdData.date }));
   }
-  if (!pages.some(p => p.type === 'league' || p.type === 'pharm' || p.type === 'otd' || p.type === 'news')) pages.unshift({ type: 'empty' });
+  if (!pages.some(p => p.type === 'league' || p.type === 'pharm' || p.type === 'otd' || p.type === 'news' || p.type === 'books')) pages.unshift({ type: 'empty' });
   if (mapAt) pages.push({ type: 'traffic' });
 }
 let mapAt = null, mapShown = null;
@@ -386,11 +395,12 @@ function render() {
   const isTraffic = pg.type === 'traffic';
   tr.classList.toggle('off', !isTraffic);
   list.style.display = isTraffic ? 'none' : 'flex';
-  document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'news' ? `Gündem<em>TÜRKİYE${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
+  document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'books' ? `Yeni Çıkan Kitaplar<em>${pg.parts > 1 ? `${pg.part}/${pg.parts}` : 'D&R'}</em>` : pg.type === 'news' ? `Gündem<em>TÜRKİYE${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
   document.getElementById('mtitle').classList.toggle('long', document.getElementById('mtitle').textContent.length > 20);
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
   else if (pg.type === 'pharm') list.innerHTML = pg.items.map(pharmCard).join('');
+  else if (pg.type === 'books') list.innerHTML = pg.items.map(bookCard).join('');
   else if (pg.type === 'news') list.innerHTML = pg.items.map(newsCard).join('');
   else if (pg.type === 'otd') list.innerHTML = pg.items.map(dayCard).join('');
   else if (pg.type === 'empty') list.innerHTML = '<div class="m"><div class="top"><span>Yakında maç yok</span></div></div>';
@@ -405,7 +415,7 @@ function tick() {
 function schedule() {
   clearTimeout(rot);
   const ty = pages[page] && pages[page].type;
-  rot = setTimeout(tick, ty === 'traffic' ? TRAFFIC_MS : (ty === 'pharm' || ty === 'otd' || ty === 'news') ? 13000 : PAGE_MS);
+  rot = setTimeout(tick, ty === 'traffic' ? TRAFFIC_MS : (ty === 'pharm' || ty === 'otd' || ty === 'news' || ty === 'books') ? 13000 : PAGE_MS);
 }
 addEventListener('resize', () => { fit(); pagesDirty = true; render(); });
 function setMatches(list, st, show) {
@@ -478,6 +488,7 @@ function infoItems() {
   if (r.gold) mk.push(it('PİYASA', `ALTIN ${f(r.gold, 0)} ₺${chgT(r.goldCh)}${r.bist ? ` · BIST 100 ${f(r.bist, 0)}${chgT(r.bistCh)}` : ''}${r.btc ? ` · BITCOIN $${f(r.btc, 0)}${chgT(r.btcCh)}` : ''}`));
   cats.push(mk);
   cats.push((showNews && newsData ? newsData.items : []).map(n => it('HABER', `${esc(n.title)} <span class="ft">${esc(n.source)}</span>`)));
+  cats.push((showBooks && booksData ? booksData.items : []).map(b => it('YENİ KİTAP', `${esc(b.title)}${b.author ? ' · ' + esc(b.author) : ''} · <b>${esc(b.price)}</b>`)));
   cats.push((showOtd && otdData ? otdData.items : []).map(e => it('TARİHTE BUGÜN', `<b>${esc(e.year)}</b> ${esc(e.text)}`)));
   cats.push((showPharm && pharmData ? pharmData.items : []).map(p => it('NÖBETÇİ ECZANE', `${esc(p.name)} · ${esc(p.address)}${p.phone ? ' · ☎ ' + esc(fmtPhone(p.phone)) : ''}`)));
   if (showStandings) cats.push(Object.entries(standingsData || {}).filter(([, rows]) => rows && rows.length).map(([lg, rows]) => it('PUAN DURUMU', `${esc(lg)}: ${rows.slice(0, 3).map(x => `${esc(x.rank)}. ${esc(x.name)} (${esc(x.pts)})`).join(' · ')}`)));
@@ -549,8 +560,8 @@ function setState(s) {
   videos = s.videos; imageSeconds = s.imageSeconds || 10;
   if (changed) { prepared = { id: null }; const k = videos.findIndex(x => x.id === current); idx = k >= 0 ? k : 0; if (k < 0) play(); }
   if (current === null && videos.length) play();
-  const infoSig = JSON.stringify([s.pharmacies, s.showPharmacy, s.onThisDay, s.showOnThisDay, s.news, s.showNews]);
-  if (infoSig !== window.__infoSig) { window.__infoSig = infoSig; pharmData = s.pharmacies; showPharm = s.showPharmacy !== false; otdData = s.onThisDay; showOtd = s.showOnThisDay !== false; newsData = s.news; showNews = s.showNews !== false; window.__forceRender = true; }
+  const infoSig = JSON.stringify([s.pharmacies, s.showPharmacy, s.onThisDay, s.showOnThisDay, s.news, s.showNews, s.books, s.showBooks]);
+  if (infoSig !== window.__infoSig) { window.__infoSig = infoSig; pharmData = s.pharmacies; showPharm = s.showPharmacy !== false; otdData = s.onThisDay; showOtd = s.showOnThisDay !== false; newsData = s.news; showNews = s.showNews !== false; booksData = s.books; showBooks = s.showBooks !== false; window.__forceRender = true; }
   if (s.mapAt !== mapAt) { const had = !!mapAt; mapAt = s.mapAt || null; if (!had !== !mapAt) { pagesDirty = true; window.__forceRender = true; } loadTraffic(); }
   setMatches(s.matches, s.standings, s.showStandings);
   lastRates = s.rates || lastRates; if (s.weather) lastWeather = s.weather; // bant çizilmeden önce kur ve hava hazır olsun
