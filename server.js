@@ -294,9 +294,10 @@ async function refreshPharmacies(force) {
   const cfg = pharmCfg();
   if (!cfg.key || !(cfg.districts || []).length) { if (pharmacies) { pharmacies = null; broadcast({ type: 'state', state: publicState() }); } return; }
   const duty = dutyDay(), sig = pharmSig();
-  if (!force && pharmacies && pharmacies.duty === duty && pharmacies.sig === sig) return; // bu nöbet günü için elde
+  if (!force && pharmacies && pharmacies.duty === duty && pharmacies.sig === sig && pharmacies.items.length) return; // bu nöbet günü için elde (boş liste sayılmaz)
   try {
     const items = await fetchPharmacies(cfg);
+    if (!items.length) throw new Error('Servis boş liste döndürdü, yeniden denenecek');
     pharmacies = { duty, sig, items, updated: new Date().toISOString() };
     pharmError = '';
     cachePut('pharmacies', pharmacies);
