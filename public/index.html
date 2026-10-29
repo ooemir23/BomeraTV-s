@@ -219,6 +219,12 @@ html.lite #traffic::after{box-shadow:none}
 #celeb.mourn #cflag{height:62%;margin-top:34%}
 #celeb.mourn #cflagw::after{content:"";position:absolute;left:.5vh;top:40%;width:1.1vh;height:.4vh;background:#000}
 #cphoto.mourn b{background:linear-gradient(transparent,rgba(0,0,0,.92))}
+/* uygulama güncelleme bildirimi (yalnızca Android uygulamasında) */
+#upd{position:fixed;right:2vw;bottom:9vh;z-index:60;display:none;align-items:center;gap:1.2vw;max-width:34vw;padding:1.6vh 1.4vw;border-radius:14px;background:rgba(20,22,24,.96);border:1px solid rgba(201,149,92,.9);box-shadow:0 1.6vh 4vh rgba(0,0,0,.6);color:#fff;font-size:1.7vh;line-height:1.35;transition:opacity .5s,transform .5s;opacity:0;transform:translateY(1vh)}
+#upd.on{display:flex}#upd.show{opacity:1;transform:none}
+#upd b{display:block;font-size:1.9vh;color:#f3cf9e;margin-bottom:.3vh}
+#upd button{flex:none;font:700 1.8vh Montserrat,sans-serif;background:linear-gradient(135deg,#c9955c,#906538);color:#fff;border:0;border-radius:10px;padding:1.2vh 1.2vw;cursor:pointer;outline:none}
+#upd button:focus{box-shadow:0 0 0 .4vh #fff}
 /* kampanya kartı */
 #camp{position:absolute;inset:.6vh;z-index:7;border-radius:15px;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;align-items:center;justify-content:center;gap:4vw;padding:3vh 3vw;background:radial-gradient(ellipse 70% 70% at 30% 40%,#4a2f18 0%,#2a1b0f 60%,#1a110a 100%)}
 #camp.on{opacity:1}
@@ -254,6 +260,7 @@ html.lite #camp .cup .st{animation:none;opacity:.7}
   <div id="ticker"><div id="tclock"><b id="tc-time">--:--</b><small id="tc-date"></small></div><div id="tlabel"><span id="tl">Canlı Skorlar</span></div><div id="tview"><div id="ttrack"><div id="ta"></div><div id="tb"></div></div></div></div>
 </div>
 <div id="bday"><p id="btxt"></p></div>
+<div id="upd"><div><b>Yeni sürüm hazır</b><span id="updtxt"></span></div><button id="updbtn" type="button">Güncelle (OK)</button></div>
 <div id="celeb"><div id="cflagw"><canvas id="cflag" width="270" height="180"></canvas></div><div id="cmid"><span id="ctitle"></span><p id="cquote"></p></div></div>
 </div>
 <div id="guide"><i></i><i></i><i></i><i></i><b id="gtxt"></b></div>
@@ -594,6 +601,7 @@ function preloadLogos(s) { // tüm sayfalardaki logoları arka planda indir: say
 }
 function setState(s) {
   preloadLogos(s);
+  checkUpdate(s.app);
   setCampaigns(s.campaigns);
   setCeleb(s.celebration);
   applySafe(s.safe || { L: s.safeInset, R: s.safeInset, T: s.safeInset, B: s.safeInset }, s.safeGuide);
@@ -856,6 +864,31 @@ setInterval(() => {
     if (since >= (c.everyMin || 3) * 60000) { campShow(c); break; }
   }
 }, 5000);
+// ---- uygulama güncelleme bildirimi: sağ altta çıkar, OK/dokunma ile yeni APK indirilip yükleyici açılır ----
+const upd = { avail: null, timer: 0, busy: false };
+function updShow(on, msg) {
+  const el = document.getElementById('upd'); if (!el) return;
+  if (msg) document.getElementById('updtxt').textContent = msg;
+  if (on) { el.classList.add('on'); setTimeout(() => el.classList.add('show'), 30); document.getElementById('updbtn').focus(); }
+  else { el.classList.remove('show'); setTimeout(() => { if (!el.classList.contains('show')) el.classList.remove('on'); }, 600); }
+}
+function updGo() {
+  if (!upd.avail || !window.BomeraNative || !BomeraNative.installUpdate) return;
+  updShow(true, 'Hazırlanıyor…');
+  clearTimeout(upd.timer);
+  BomeraNative.installUpdate(location.origin + upd.avail.url);
+}
+window.__updateKey = () => { if (upd.avail && document.getElementById('upd').classList.contains('show')) updGo(); }; // kumanda OK tuşu
+window.__updateStatus = msg => { updShow(true, msg); clearTimeout(upd.timer); upd.timer = setTimeout(() => updShow(false), 60000); };
+document.getElementById('updbtn').addEventListener('click', updGo);
+function checkUpdate(a) {
+  const n = window.BomeraNative;
+  if (!n || !n.versionCode || !a || !(a.versionCode > n.versionCode())) { upd.avail = null; clearInterval(upd.iv); upd.iv = 0; updShow(false); return; }
+  const first = !upd.avail || upd.avail.versionCode !== a.versionCode;
+  upd.avail = a;
+  const remind = () => { updShow(true, 'Sürüm ' + a.versionName + ' indirilebilir. Güncellemek için kumandada OK tuşuna basın.'); clearTimeout(upd.timer); upd.timer = setTimeout(() => updShow(false), 45000); };
+  if (first) { remind(); clearInterval(upd.iv); upd.iv = setInterval(remind, 5 * 60 * 1000); } // kapanınca 5 dakikada bir tekrar hatırlatır
+}
 function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {

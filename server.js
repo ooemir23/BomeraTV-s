@@ -546,6 +546,8 @@ if (!Array.isArray(db.campaigns) || !db.campaigns.length) db.campaigns = [{
 const pubCamp = ({ id, headline, sub, note, qrLabel, svg, everyMin, durSec }) => ({ id, headline, sub, note, qrLabel, svg, everyMin, durSec });
 const publicCampaigns = () => db.campaigns.filter(c => c.enabled && c.svg).map(pubCamp);
 
+// public/apk-version.json: yeni APK yayınlanınca sürüm kodu burada artırılır; Android uygulaması kendi sürümüyle karşılaştırıp güncelleme bildirimi gösterir
+const appVersion = () => { try { const v = JSON.parse(fs.readFileSync(path.join(__dirname, 'public/apk-version.json'), 'utf8')); return { versionCode: Number(v.versionCode) || 0, versionName: String(v.versionName || ''), url: '/BomeraTV.apk' }; } catch { return null; } };
 const publicState = () => ({
   videos: db.videos.filter(v => v.status !== 'processing' || v.reopt).map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file, type: v.type || 'video' })),
   imageSeconds: db.imageSeconds,
@@ -564,6 +566,7 @@ const publicState = () => ({
   showNews: newsCfg().enabled !== false,
   showBooks: db.showBooks !== false,
   celebration: activeCelebration(),
+  app: appVersion(),
   campaigns: publicCampaigns(),
   books: books && Date.now() - Date.parse(books.updated) < 72 * HOUR ? { items: books.items } : null,
   news: news && Date.now() - Date.parse(news.updated) < 12 * HOUR ? { items: news.items } : null, // 12 saatten eski haber gösterilmez

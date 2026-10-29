@@ -175,7 +175,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
         <a class="btn ghost" href="/" target="_blank" style="text-decoration:none">📺 TV ekranını aç</a>
         <a class="btn" href="/BomeraTV.apk" download="BomeraTV.apk" style="text-decoration:none">📱 Android uygulamasını indir (APK)</a>
       </div>
-      <p class="hint" style="margin:12px 0 0">APK, Android TV kutusuna ya da telefona kurulur. Kurarken "bilinmeyen kaynaklardan yükleme" iznini açmanız gerekebilir. Eski sürümün üzerine kurulunca güncellenir.</p>
+      <p class="hint" style="margin:12px 0 0">APK, Android TV kutusuna ya da telefona kurulur. Kurarken "bilinmeyen kaynaklardan yükleme" iznini açmanız gerekebilir. Eski sürümün üzerine kurulunca güncellenir. Yeni sürüm yayınlandığında TV'nin sağ altında "Yeni sürüm hazır" bildirimi çıkar; kumandada <b>OK</b> tuşuna basınca indirip kurar. Güncel sürüm: <b id="apkver">…</b></p>
     </div>
   </div>
 </section>
@@ -744,6 +744,7 @@ async function load() {
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
   ['L', 'R', 'T', 'B'].forEach(k => { const v = db['safe' + k] != null ? db['safe' + k] : (db.safeInset || 0); $('safe' + k).value = v; $('sv-' + k).textContent = v; }); $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
+  if (!window.__apkv) { window.__apkv = 1; fetch('/apk-version.json').then(r => r.json()).then(v => { $('apkver').textContent = v.versionName + ' (kod ' + v.versionCode + ')'; }).catch(() => {}); }
   loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); renderCamp(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });

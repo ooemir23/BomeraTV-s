@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Android TV kutularında da kurulabilsin -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -29,6 +30,9 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Uygulama içi güncelleme: indirilen APK'yı yükleyiciye verir -->
+        <provider android:name=".UpdateProvider" android:authorities="com.bomeralounge.tv.update" android:exported="false" android:grantUriPermissions="true" />
 
         <!-- Cihaz açılınca uygulamayı başlatmayı dener -->
         <receiver android:name=".BootReceiver" android:exported="true">

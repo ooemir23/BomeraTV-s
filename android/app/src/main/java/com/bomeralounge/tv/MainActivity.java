@@ -3,7 +3,10 @@ package com.bomeralounge.tv;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +24,9 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -200,11 +206,93 @@ public class MainActivity extends Activity {
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_F5) { web.reload(); return true; }
         if (keyCode == KeyEvent.KEYCODE_BACK) return true;
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            // güncelleme bildirimi ekrandaysa kumandadaki OK tuşu güncellemeyi başlatır
+            web.evaluateJavascript("window.__updateKey && window.__updateKey();", null);
+        }
         return super.onKeyDown(keyCode, event);
     }
 
     /** Sayfanın APK içinde çalıştığını anlaması için (window.BomeraNative). */
     private class Bridge {
         @JavascriptInterface public boolean isNative() { return true; }
+
+        /** Kurulu uygulamanın sürüm kodu (güncelleme bildirimi için). */
+        @JavascriptInterface public int versionCode() {
+            try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode; } catch (Exception e) { return 0; }
+        }
+
+        /** Yeni APK'yı indirir ve yükleyiciyi açar. Durum, sayfadaki window.__updateStatus(metin) ile bildirilir. */
+        @JavascriptInterface public void installUpdate(final String url) {
+            runOnUiThread(new Runnable() { @Override public void run() { startUpdate(url); } });
+        }
+    }
+
+    private volatile boolean updating = false;
+
+    private void updateStatus(final String msg) {
+        handler.post(new Runnable() { @Override public void run() {
+            if (web != null) web.evaluateJavascript("window.__updateStatus && window.__updateStatus(" + JSONObject.quote(msg) + ");", null);
+        } });
+    }
+
+    private void startUpdate(final String url) {
+        if (updating) return;
+        if (!url.startsWith("https://tv.bomeralounge.com/")) { updateStatus("Geçersiz güncelleme adresi"); return; }
+        if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            // Android bu uygulamaya bir kez "bilinmeyen kaynaklardan yükleme" izni ister
+            updateStatus("Açılan ekranda Bomera TV için izni açıp geri dönün, sonra tekrar OK'a basın");
+            Intent i = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()));
+            startActivity(i);
+            return;
+        }
+        updating = true;
+        updateStatus("İndiriliyor…");
+        new Thread(new Runnable() {
+            @Override public void run() {
+                HttpURLConnection c = null;
+                try {
+                    File f = UpdateProvider.apkFile(MainActivity.this);
+                    f.getParentFile().mkdirs();
+                    File tmp = new File(f.getParentFile(), "dl.tmp");
+                    c = (HttpURLConnection) new URL(url).openConnection();
+                    c.setConnectTimeout(15000);
+                    c.setReadTimeout(30000);
+                    if (c.getResponseCode() != 200) throw new Exception("sunucu " + c.getResponseCode());
+                    InputStream in = c.getInputStream();
+                    FileOutputStream out = new FileOutputStream(tmp);
+                    byte[] buf = new byte[16384]; int n; long total = 0;
+                    while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); total += n; }
+                    out.close(); in.close();
+                    if (total < 20000) throw new Exception("dosya eksik");
+                    if (f.exists()) f.delete();
+                    if (!tmp.renameTo(f)) throw new Exception("dosya yazılamadı");
+                    handler.post(new Runnable() { @Override public void run() { launchInstaller(); } });
+                } catch (Exception e) {
+                    updateStatus("İndirilemedi: " + e.getMessage());
+                } finally {
+                    if (c != null) c.disconnect();
+                    updating = false;
+                }
+            }
+        }).start();
+    }
+
+    private void launchInstaller() {
+        try {
+            File f = UpdateProvider.apkFile(this);
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            if (Build.VERSION.SDK_INT >= 24) {
+                i.setDataAndType(Uri.parse("content://com.bomeralounge.tv.update/BomeraTV.apk"), "application/vnd.android.package-archive");
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } else {
+                i.setDataAndType(Uri.fromFile(f), "application/vnd.android.package-archive");
+            }
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+            updateStatus("Yükleme ekranında \"Yükle\" seçeneğini onaylayın");
+        } catch (Exception e) {
+            updateStatus("Yükleyici açılamadı: " + e.getMessage());
+        }
     }
 }
