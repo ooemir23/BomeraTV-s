@@ -479,17 +479,17 @@ app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'public/admin.ht
 
 // ---- Resmî gün kutlamaları: gün başından ertesi gün 03:00'e kadar üstte bayrak + Atatürk sözleri, arada fotoğraflar ----
 const HOLIDAYS = [
-  { id: 'nisan23', md: '04-23', title: '23 Nisan Ulusal Egemenlik ve Çocuk Bayramı', quotes: [
+  { id: 'nisan23', photoPrefix: 'nisan23-', md: '04-23', title: '23 Nisan Ulusal Egemenlik ve Çocuk Bayramı', quotes: [
     'Egemenlik kayıtsız şartsız milletindir.',
     'Çocuklar geleceğimizin güvencesi, yaşatıcısıdır.',
     'Küçük hanımlar, küçük beyler! Sizler hepiniz geleceğin bir gül bahçesinin gülleri, yıldızları, ışıklarısınız.',
     'Yurtta sulh, cihanda sulh.'] },
-  { id: 'mayis19', md: '05-19', title: "19 Mayıs Atatürk'ü Anma, Gençlik ve Spor Bayramı", quotes: [
+  { id: 'mayis19', photoPrefix: 'mayis19-', md: '05-19', title: "19 Mayıs Atatürk'ü Anma, Gençlik ve Spor Bayramı", quotes: [
     'Bütün ümidim gençliktedir.',
     'Ey Türk gençliği! Birinci vazifen, Türk istiklalini, Türk Cumhuriyetini ilelebet muhafaza ve müdafaa etmektir.',
     'Hayatta en hakiki mürşit ilimdir.',
     'Ne mutlu Türk\'üm diyene!'] },
-  { id: 'agustos30', md: '08-30', title: '30 Ağustos Zafer Bayramı', quotes: [
+  { id: 'agustos30', photoPrefix: 'agustos30-', md: '08-30', title: '30 Ağustos Zafer Bayramı', quotes: [
     'Hatt-ı müdafaa yoktur, sath-ı müdafaa vardır. O satıh bütün vatandır.',
     'Ordular! İlk hedefiniz Akdeniz\'dir, ileri!',
     'Yurtta sulh, cihanda sulh.',
@@ -507,7 +507,7 @@ const HOLIDAYS = [
     'Yurtta sulh, cihanda sulh.'] },
 ];
 const CELEB_DIR = path.join(__dirname, 'public/celebrate');
-// bir günün fotoğrafları: hazır olanlar (yalnızca 29 Ekim ve 10 Kasım için) + o güne admin'den eklenenler
+// bir günün fotoğrafları: hazır olanlar (her gün için) + o güne admin'den eklenenler
 const celebPhotos = h => [
   ...(h.photoPrefix && fs.existsSync(CELEB_DIR) ? fs.readdirSync(CELEB_DIR).filter(f => /\.(jpe?g|png|webp)$/i.test(f) && f.startsWith(h.photoPrefix)).sort().map(f => ({ url: '/celebrate/' + f })) : []),
   ...(db.celebPhotos || []).filter(p => p.day === h.id).map(p => ({ id: p.id, url: '/uploads/' + p.file })),
