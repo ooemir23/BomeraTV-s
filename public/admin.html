@@ -125,7 +125,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <button class="nav" data-tab="reviews"><span class="ic">★</span>Yorumlar<span class="badge" id="b-reviews">0</span></button>
   <button class="nav" data-tab="camp"><span class="ic">🎁</span>Kampanyalar<span class="badge" id="b-camp">0</span></button>
   <button class="nav" data-tab="bday"><span class="ic">🎂</span>Doğum Günü<span class="badge" id="b-bday">0</span></button>
-  <div id="sidefoot"><div id="zoomctl"><button onclick="zoomBy(-0.1)" title="Küçült">A−</button><span id="zoomval">Otomatik</span><button onclick="zoomBy(0.1)" title="Büyüt">A+</button></div><a href="#" onclick="zoomAuto();return false" style="display:block;margin-bottom:8px;font-size:11px">Otomatik boyuta dön</a><a href="/" target="_blank">TV ekranını aç ↗</a></div>
+  <div id="sidefoot"><div id="zoomctl"><button onclick="zoomBy(-0.1)" title="Küçült">A−</button><span id="zoomval">Otomatik</span><button onclick="zoomBy(0.1)" title="Büyüt">A+</button></div><a href="#" onclick="zoomAuto();return false" style="display:block;margin-bottom:8px;font-size:11px">Otomatik boyuta dön</a><a href="/" target="_blank">TV ekranını aç ↗</a><br><a href="/BomeraTV.apk" download="BomeraTV.apk">APK indir ⬇</a></div>
 </aside>
 <main>
 
@@ -173,7 +173,9 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
         <button class="btn" onclick="post('/goal/test','Gol animasyonu tüm TV\'lere gönderildi')">⚽ Gol animasyonunu test et</button>
         <button class="btn" onclick="post('/birthday/fire','Doğum günü kutlaması gönderildi (seçili kişi yoksa görünmez)')">🎂 Doğum gününü şimdi göster</button>
         <a class="btn ghost" href="/" target="_blank" style="text-decoration:none">📺 TV ekranını aç</a>
+        <a class="btn" href="/BomeraTV.apk" download="BomeraTV.apk" style="text-decoration:none">📱 Android uygulamasını indir (APK)</a>
       </div>
+      <p class="hint" style="margin:12px 0 0">APK, Android TV kutusuna ya da telefona kurulur. Kurarken "bilinmeyen kaynaklardan yükleme" iznini açmanız gerekebilir. Eski sürümün üzerine kurulunca güncellenir.</p>
     </div>
   </div>
 </section>
