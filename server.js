@@ -763,6 +763,34 @@ app.post('/api/admin/news/test', async (req, res) => {
   catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.post('/api/admin/map/refresh', async (_, res) => { const r = await renderMap(); res.status(r.ok ? 200 : 502).json(r); });
+// ---- Depolama: sunucuda ne kadar yer kullanıldığı ----
+function dirStat(dir) {
+  let bytes = 0, count = 0;
+  const walk = d => { for (const e of fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }) : []) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else { try { bytes += fs.statSync(f).size; count++; } catch {} } } };
+  walk(dir);
+  return { bytes, count };
+}
+app.get('/api/admin/storage', (_, res) => {
+  const files = {}; let media = 0;
+  for (const v of db.videos) { try { files[v.file] = fs.statSync(path.join(UPLOAD_DIR, v.file)).size; media += files[v.file]; } catch {} }
+  const known = new Set([...db.videos.map(v => v.file), ...(db.celebPhotos || []).map(p => p.file)]);
+  let other = 0, otherN = 0, celeb = 0;
+  for (const n of fs.readdirSync(UPLOAD_DIR)) {
+    let sz = 0; try { sz = fs.statSync(path.join(UPLOAD_DIR, n)).size; } catch { continue; }
+    if ((db.celebPhotos || []).some(p => p.file === n)) celeb += sz;
+    else if (!known.has(n)) { other += sz; otherN++; } // listede olmayan (yarım kalmış yükleme vb.)
+  }
+  const part = d => dirStat(path.join(DATA_DIR, d));
+  const uploadsAll = dirStat(UPLOAD_DIR), total = dirStat(DATA_DIR);
+  const small = ['db.json', 'cache.json'].reduce((a, f) => a + (fs.existsSync(path.join(DATA_DIR, f)) ? fs.statSync(path.join(DATA_DIR, f)).size : 0), 0);
+  let disk = null;
+  try { const st = fs.statfsSync(DATA_DIR); disk = { total: st.blocks * st.bsize, free: st.bavail * st.bsize }; } catch {}
+  res.json({
+    files, mediaBytes: media, mediaCount: db.videos.length, celebBytes: celeb, otherBytes: other, otherCount: otherN,
+    logosBytes: part('logos').bytes, mapBytes: part('map').bytes, backupsBytes: part('backups').bytes, dbBytes: small,
+    uploadsBytes: uploadsAll.bytes, totalBytes: total.bytes, disk,
+  });
+});
 app.get('/api/admin/cache', (_, res) => {
   const age = k => (cache[k] ? Math.round((Date.now() - cache[k].at) / 60000) : null);
   res.json({

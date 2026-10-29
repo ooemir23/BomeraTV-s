@@ -200,6 +200,11 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div class="row" style="align-items:center"><button class="btn" onclick="optimizeAll()">Mevcut medyayı optimize et</button><span id="optstat" style="color:var(--mute);font-size:13px"></span></div>
   </div>
   <div class="card">
+    <h2>Depolama (sunucuda kapladığı yer)</h2>
+    <p class="hint">Yüklenen videolar ve fotoğraflar sunucunun diskinde saklanır. Aşağıda toplam kullanım ve neyin ne kadar yer kapladığı görünür.</p>
+    <div id="storage"><div class="empty">Yükleniyor…</div></div>
+  </div>
+  <div class="card">
     <h2>Gösterim Sırası</h2><p class="hint">Sıra soldan sağa, yukarıdan aşağıya doğrudur ve sürekli döner. Okları kullanarak sırayı değiştirebilirsiniz.</p>
     <div class="row" style="margin-bottom:6px">
       <div class="fld" style="max-width:220px"><label class="f">Fotoğraf ekranda kalma süresi (sn)</label><input type="number" id="imgsec" min="3" max="120"></div>
@@ -478,12 +483,29 @@ function uploadOne(f) {
     x.send(fd);
   });
 }
+/* depolama bilgisi */
+let storageInfo = null;
+const fmtSize = b => b >= 1073741824 ? (b / 1073741824).toFixed(2).replace('.', ',') + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+async function loadStorage() {
+  try {
+    storageInfo = await (await fetch('/api/admin/storage')).json();
+    const m = storageInfo, d = m.disk;
+    const rows = [['Medya (videolar ve fotoğraflar, ' + m.mediaCount + ' dosya)', m.mediaBytes], ['Kutlama fotoğrafları', m.celebBytes], ['Takım logoları', m.logosBytes], ['Trafik haritası', m.mapBytes], ['Yedekler', m.backupsBytes], ['Ayar ve önbellek dosyaları', m.dbBytes]];
+    if (m.otherBytes > 0) rows.push(['Listede olmayan dosyalar (' + m.otherCount + ' adet, yarım kalmış yükleme olabilir)', m.otherBytes]);
+    const pct = d ? Math.min(100, Math.round((d.total - d.free) / d.total * 100)) : 0;
+    $('storage').innerHTML = `<div class="row" style="gap:28px;margin-bottom:14px"><div><div class="hint" style="margin:0">Uygulama verisi toplam</div><b style="font-size:24px">${fmtSize(m.totalBytes)}</b></div>
+      ${d ? `<div><div class="hint" style="margin:0">Sunucu diski</div><b style="font-size:24px">${fmtSize(d.total - d.free)}</b> <span class="hint" style="margin:0">/ ${fmtSize(d.total)} dolu · ${fmtSize(d.free)} boş</span></div>` : ''}</div>
+      ${d ? `<div style="height:10px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${pct}%;background:${pct > 90 ? 'var(--bad)' : 'var(--accent2)'}"></div></div>` : ''}
+      ${rows.map(([n, b]) => `<div class="item" style="margin-bottom:6px"><div class="body"><b style="font-weight:600">${n}</b></div><span style="color:var(--accent2);font-weight:700;white-space:nowrap">${fmtSize(b)}</span></div>`).join('')}`;
+    renderMedia();
+  } catch (e) { $('storage').innerHTML = '<div class="empty">Depolama bilgisi alınamadı.</div>'; }
+}
 function renderMedia() {
   const list = db.videos || [];
   $('media-list').innerHTML = list.length ? '<div id="media">' + list.map((v, i) => `<div class="tile">
     <div class="thumb">${v.type === 'image' ? `<img src="/uploads/${v.file}" loading="lazy">` : `<video src="/uploads/${v.file}#t=0.5" preload="metadata" muted></video>`}
       <span class="no">${i + 1}</span><span class="ty">${v.status === 'processing' ? (v.reopt ? '⚙ Küçültülüyor' : '⚙ Optimize ediliyor') : v.type === 'image' ? '🖼 Fotoğraf' : '🎬 Video'}</span></div>
-    <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>${v.status === 'processing' ? '<div class="nm" style="color:var(--accent2);font-size:12px">' + (v.reopt ? 'Oynamaya devam ediyor' : 'TV\'de henüz gösterilmiyor') + '</div>' : v.sizeBefore ? `<div class="nm" style="color:var(--mute);font-size:12px">${fmtMB(v.sizeBefore)} → ${fmtMB(v.sizeAfter || v.sizeBefore)}</div>` : v.optError ? `<div class="nm" style="color:var(--bad);font-size:12px" title="${esc(v.optError)}">Optimize edilemedi (orijinal kullanılıyor)</div>` : ''}
+    <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>${storageInfo && storageInfo.files[v.file] ? `<div class="nm" style="color:var(--mute);font-size:12px">Disk: ${fmtSize(storageInfo.files[v.file])}</div>` : ''}${storageInfo && storageInfo.files[v.file] ? `<div class="nm" style="color:var(--mute);font-size:12px">Disk: ${fmtSize(storageInfo.files[v.file])}</div>` : ''}${v.status === 'processing' ? '<div class="nm" style="color:var(--accent2);font-size:12px">' + (v.reopt ? 'Oynamaya devam ediyor' : 'TV\'de henüz gösterilmiyor') + '</div>' : v.sizeBefore ? `<div class="nm" style="color:var(--mute);font-size:12px">${fmtMB(v.sizeBefore)} → ${fmtMB(v.sizeAfter || v.sizeBefore)}</div>` : v.optError ? `<div class="nm" style="color:var(--bad);font-size:12px" title="${esc(v.optError)}">Optimize edilemedi (orijinal kullanılıyor)</div>` : ''}
       <div class="act"><button class="btn ghost sm" ${i === 0 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">← Öne</button>
       <button class="btn ghost sm" ${i === list.length - 1 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'down'})">Sona →</button>
       <button class="btn danger sm" onclick="del('/videos/${v.id}','${esc(v.name).replace(/'/g, '')}')">Sil</button></div></div></div>`).join('') + '</div>'
@@ -750,6 +772,7 @@ async function load() {
   ['L', 'R', 'T', 'B'].forEach(k => { const v = db['safe' + k] != null ? db['safe' + k] : (db.safeInset || 0); $('safe' + k).value = v; $('sv-' + k).textContent = v; }); $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
   if (!window.__apkv) { window.__apkv = 1; fetch('/apk-version.json').then(r => r.json()).then(v => { $('apkver').textContent = v.versionName + ' (kod ' + v.versionCode + ')'; }).catch(() => {}); }
+  if (Date.now() - (window.__stAt || 0) > 20000) { window.__stAt = Date.now(); loadStorage(); }
   loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); renderCamp(); initCollapse(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
