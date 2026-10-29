@@ -190,9 +190,17 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
 <section id="sec-media">
   <h1>Medya</h1><p class="sub">Ekranda sırayla gösterilen video ve fotoğraflar.</p>
   <div class="card">
+    <h2>Medya Ekleme ve Gösterim Sırası</h2>
     <div id="drop"><b>Dosyaları buraya sürükleyin</b><span>ya da tıklayıp seçin · video ve fotoğraf (birden fazla seçebilirsiniz)</span></div>
     <input type="file" id="files" accept="video/*,image/*" multiple hidden>
     <div id="uploads"></div>
+    <h3 style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2);margin:22px 0 6px">Gösterim sırası</h3>
+    <p class="hint">Sıra soldan sağa, yukarıdan aşağıya doğrudur ve sürekli döner. Okları kullanarak sırayı değiştirebilirsiniz.</p>
+    <div class="row" style="margin-bottom:6px">
+      <div class="fld" style="max-width:220px"><label class="f">Fotoğraf ekranda kalma süresi (sn)</label><input type="number" id="imgsec" min="3" max="120"></div>
+      <button class="btn" onclick="saveImgSec()">Kaydet</button>
+    </div>
+    <div id="media-list"></div>
   </div>
   <div class="card">
     <h2>Otomatik Optimizasyon</h2>
@@ -203,14 +211,6 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <h2>Depolama (sunucuda kapladığı yer)</h2>
     <p class="hint">Yüklenen videolar ve fotoğraflar sunucunun diskinde saklanır. Aşağıda toplam kullanım ve neyin ne kadar yer kapladığı görünür.</p>
     <div id="storage"><div class="empty">Yükleniyor…</div></div>
-  </div>
-  <div class="card">
-    <h2>Gösterim Sırası</h2><p class="hint">Sıra soldan sağa, yukarıdan aşağıya doğrudur ve sürekli döner. Okları kullanarak sırayı değiştirebilirsiniz.</p>
-    <div class="row" style="margin-bottom:6px">
-      <div class="fld" style="max-width:220px"><label class="f">Fotoğraf ekranda kalma süresi (sn)</label><input type="number" id="imgsec" min="3" max="120"></div>
-      <button class="btn" onclick="saveImgSec()">Kaydet</button>
-    </div>
-    <div id="media-list"></div>
   </div>
 </section>
 
@@ -505,7 +505,7 @@ function renderMedia() {
   $('media-list').innerHTML = list.length ? '<div id="media">' + list.map((v, i) => `<div class="tile">
     <div class="thumb">${v.type === 'image' ? `<img src="/uploads/${v.file}" loading="lazy">` : `<video src="/uploads/${v.file}#t=0.5" preload="metadata" muted></video>`}
       <span class="no">${i + 1}</span><span class="ty">${v.status === 'processing' ? (v.reopt ? '⚙ Küçültülüyor' : '⚙ Optimize ediliyor') : v.type === 'image' ? '🖼 Fotoğraf' : '🎬 Video'}</span></div>
-    <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>${storageInfo && storageInfo.files[v.file] ? `<div class="nm" style="color:var(--mute);font-size:12px">Disk: ${fmtSize(storageInfo.files[v.file])}</div>` : ''}${storageInfo && storageInfo.files[v.file] ? `<div class="nm" style="color:var(--mute);font-size:12px">Disk: ${fmtSize(storageInfo.files[v.file])}</div>` : ''}${v.status === 'processing' ? '<div class="nm" style="color:var(--accent2);font-size:12px">' + (v.reopt ? 'Oynamaya devam ediyor' : 'TV\'de henüz gösterilmiyor') + '</div>' : v.sizeBefore ? `<div class="nm" style="color:var(--mute);font-size:12px">${fmtMB(v.sizeBefore)} → ${fmtMB(v.sizeAfter || v.sizeBefore)}</div>` : v.optError ? `<div class="nm" style="color:var(--bad);font-size:12px" title="${esc(v.optError)}">Optimize edilemedi (orijinal kullanılıyor)</div>` : ''}
+    <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>${storageInfo && storageInfo.files[v.file] ? `<div class="nm" style="color:var(--mute);font-size:12px">Disk: ${fmtSize(storageInfo.files[v.file])}</div>` : ''}${v.status === 'processing' ? '<div class="nm" style="color:var(--accent2);font-size:12px">' + (v.reopt ? 'Oynamaya devam ediyor' : 'TV\'de henüz gösterilmiyor') + '</div>' : v.sizeBefore ? `<div class="nm" style="color:var(--mute);font-size:12px">${fmtMB(v.sizeBefore)} → ${fmtMB(v.sizeAfter || v.sizeBefore)}</div>` : v.optError ? `<div class="nm" style="color:var(--bad);font-size:12px" title="${esc(v.optError)}">Optimize edilemedi (orijinal kullanılıyor)</div>` : ''}
       <div class="act"><button class="btn ghost sm" ${i === 0 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'up'})">← Öne</button>
       <button class="btn ghost sm" ${i === list.length - 1 ? 'disabled' : ''} onclick="api('POST','/videos/${v.id}/move',{dir:'down'})">Sona →</button>
       <button class="btn danger sm" onclick="del('/videos/${v.id}','${esc(v.name).replace(/'/g, '')}')">Sil</button></div></div></div>`).join('') + '</div>'
