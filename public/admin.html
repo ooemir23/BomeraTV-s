@@ -33,6 +33,12 @@ section{display:none}
 section.on{display:block}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:20px}
 .card h2{font-size:16px;font-weight:600;margin-bottom:4px}
+.card.collapsible>h2{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:0;user-select:none}
+.card.collapsible>h2::after{content:"";flex:none;width:9px;height:9px;border-right:2px solid var(--accent2);border-bottom:2px solid var(--accent2);transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+.card.collapsible:not(.closed)>h2{margin-bottom:6px}
+.card.collapsible:not(.closed)>h2::after{transform:rotate(-135deg) translateY(-2px)}
+.card.collapsible>h2:hover{color:var(--accent2)}
+.card.collapsible.closed>.cbody{display:none}
 .card .hint{color:var(--mute);font-size:13px;margin-bottom:16px;line-height:1.5}
 .grid{display:grid;gap:16px}
 .g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
@@ -318,10 +324,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="cben" onchange="api('PUT','/options',{showCelebrations:this.checked},this.checked?'Kutlamalar açıldı':'Kutlamalar kapatıldı')"><i></i></label><div class="body"><b>Resmî günlerde kutlama bandını göster</b></div></div>
     <label class="f">Özel günler</label>
     <div id="cbdays" style="margin-bottom:14px"></div>
-    <label class="f">Fotoğraflar</label>
-    <div id="cbphotos" style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px"></div>
-    <div class="row"><select id="cbtype" style="max-width:240px"><option value="0">Bayram günleri için</option><option value="1">10 Kasım için</option></select><label class="btn ghost" style="cursor:pointer">Fotoğraf ekle<input type="file" id="cbfile" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="cbUpload(this)"></label></div>
-    <p class="hint" style="margin:10px 0 0">10 Kasım'da bayrak yarıya iner, bant gri-siyah olur ve saat 09:05'te bir dakika boyunca anma fotoğrafı çıkar. Hazır fotoğraflar Vikimedya Commons'taki kamu malı Atatürk görselleridir (siyah-beyaz gösterilir). Kendi fotoğraflarınızı ekleyebilirsiniz (en çok 20, 8 MB).</p>
+    <p class="hint" style="margin:6px 0 0">Her günün yanındaki <b>Fotoğraf ekle</b> düğmesiyle o güne fotoğraf ekleyebilirsiniz (günde en çok 12, her biri en çok 8 MB). Fotoğraflar bayram boyunca arada tam ekran, siyah-beyaz gösterilir. 29 Ekim ve 10 Kasım için kamu malı Atatürk fotoğrafları hazır gelir (Vikimedya Commons). 10 Kasım'da bayrak yarıya iner, bant gri-siyah olur ve saat 09:05'te bir dakika boyunca anma fotoğrafı çıkar.</p>
   </div>
   <div class="card">
     <h2>Tarihte Bugün</h2>
@@ -415,22 +418,27 @@ function toast(msg, err) {
 }
 async function loadCeleb() {
   try {
+    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#cbdays')) return; // seçim yaparken yeniden çizme
     const c = await (await fetch('/api/admin/celebrate')).json();
     $('cben').checked = c.enabled;
     const md = d => d.slice(3).replace(/^0/, '') + ' ' + ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][+d.slice(0, 2) - 1];
-    $('cbdays').innerHTML = c.holidays.map(h => `<div class="item"><div class="body"><b>${h.title}</b><div class="hint" style="margin:2px 0 0">${md(h.md)}${c.active === h.id ? ' · <span style="color:var(--accent2)">şu an ekranda</span>' : ''}</div></div><select onchange="api('PUT','/celebrate/mode',{id:'${h.id}',mode:this.value},'Kaydedildi')" style="max-width:190px"><option value="auto"${h.mode === 'auto' ? ' selected' : ''}>Otomatik (o gün)</option><option value="on"${h.mode === 'on' ? ' selected' : ''}>Elle açık</option><option value="off"${h.mode === 'off' ? ' selected' : ''}>Kapalı</option></select><button class="btn ghost" onclick="api('POST','/celebrate/preview',{id:'${h.id}'},'Önizleme ekranda (3 dk)')">Önizle</button></div>`).join('') + '<div class="row" style="margin-top:8px"><button class="btn ghost" onclick="api(\'POST\',\'/celebrate/preview\',{},\'Önizleme kapatıldı\')">Önizlemeyi kapat</button></div>';
-    $('cbphotos').innerHTML = c.photos.map(p => `<div style="position:relative"><img src="${p.url}" style="height:90px;border-radius:8px;filter:grayscale(1);display:block"><small style="position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.7);padding:1px 6px;border-radius:6px;font-size:10px">${p.mourn ? '10 Kasım' : 'Bayram'}</small>${p.id ? `<button class="btn ghost" style="position:absolute;right:4px;top:4px;padding:2px 8px" onclick="api('DELETE','/celebrate/photos/${p.id}',undefined,'Fotoğraf silindi')">Sil</button>` : ''}</div>`).join('');
+    $('cbdays').innerHTML = c.holidays.map(h => `<div style="margin-bottom:10px"><div class="item" style="margin-bottom:0;flex-wrap:wrap"><div class="body" style="min-width:220px"><b>${h.title}</b><div class="hint" style="margin:2px 0 0">${md(h.md)}${c.active === h.id ? ' · <span style="color:var(--accent2)">şu an ekranda</span>' : ''}</div></div><select onchange="api('PUT','/celebrate/mode',{id:'${h.id}',mode:this.value},'Kaydedildi')" style="max-width:170px"><option value="auto"${h.mode === 'auto' ? ' selected' : ''}>Otomatik (o gün)</option><option value="on"${h.mode === 'on' ? ' selected' : ''}>Elle açık</option><option value="off"${h.mode === 'off' ? ' selected' : ''}>Kapalı</option></select><button class="btn ghost" onclick="api('POST','/celebrate/preview',{id:'${h.id}'},'Önizleme ekranda (3 dk)')">Önizle</button><label class="btn ghost" style="cursor:pointer;margin:0">📷 Fotoğraf ekle<input type="file" accept="image/jpeg,image/png,image/webp" multiple style="display:none" onchange="cbUpload(this,'${h.id}')"></label></div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px 4px 0">${h.photos.length ? h.photos.map(p => `<div style="position:relative"><img src="${p.url}" style="height:84px;border-radius:8px;filter:grayscale(1);display:block">${p.id ? `<button class="btn danger sm" style="position:absolute;right:4px;top:4px;padding:1px 8px;background:rgba(20,10,10,.85)" onclick="del('/celebrate/photos/${p.id}','bu fotoğraf')">Sil</button>` : '<small style="position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.7);padding:1px 6px;border-radius:6px;font-size:10px">hazır</small>'}</div>`).join('') : '<span class="hint" style="margin:0">Bu güne henüz fotoğraf eklenmedi.</span>'}</div></div>`).join('') + '<div class="row" style="margin-top:8px"><button class="btn ghost" onclick="api(\'POST\',\'/celebrate/preview\',{},\'Önizleme kapatıldı\')">Önizlemeyi kapat</button></div>';
   } catch (e) {}
 }
-async function cbUpload(inp) {
-  const f = inp.files[0]; if (!f) return;
-  const fd = new FormData(); fd.append('mourn', $('cbtype').value); fd.append('file', f);
-  try {
-    const r = await fetch('/api/admin/celebrate/photos', { method: 'POST', body: fd });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Yüklenemedi');
-    toast('Fotoğraf eklendi'); await load();
-  } catch (e) { toast(e.message, true); }
-  inp.value = '';
+async function cbUpload(inp, day) {
+  const files = [...inp.files]; if (!files.length) return;
+  let ok = 0;
+  for (const f of files) {
+    const fd = new FormData(); fd.append('day', day); fd.append('file', f);
+    try {
+      const r = await fetch('/api/admin/celebrate/photos', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Yüklenemedi');
+      ok++;
+    } catch (e) { toast(f.name + ': ' + e.message, true); }
+  }
+  if (ok) toast(ok + ' fotoğraf eklendi');
+  inp.value = ''; await load();
 }
 async function api(method, path, body, ok) {
   try {
@@ -685,6 +693,25 @@ async function addReview() {
   if (ok) { $('ra').value = ''; $('rt').value = ''; }
 }
 
+/* kart başlıkları: tıklayınca açılıp kapanır, ilk girişte kapalı gelir */
+const openCards = new Set();
+function initCollapse() {
+  document.querySelectorAll('.card').forEach(card => {
+    if (card.dataset.col) return;
+    const h = [...card.children].find(el => el.tagName === 'H2'); if (!h) return;
+    card.dataset.col = '1'; card.classList.add('collapsible');
+    const body = document.createElement('div'); body.className = 'cbody';
+    while (h.nextSibling) body.appendChild(h.nextSibling);
+    card.appendChild(body);
+    const key = h.textContent.trim();
+    if (!openCards.has(key)) card.classList.add('closed');
+    h.addEventListener('click', () => {
+      const closed = card.classList.toggle('closed');
+      closed ? openCards.delete(key) : openCards.add(key);
+      if (!closed && typeof scalePv === 'function') setTimeout(scalePv, 30);
+    });
+  });
+}
 /* kampanyalar */
 function renderCamp() {
   const list = db.campaigns || [];
@@ -745,7 +772,7 @@ async function load() {
   ['L', 'R', 'T', 'B'].forEach(k => { const v = db['safe' + k] != null ? db['safe' + k] : (db.safeInset || 0); $('safe' + k).value = v; $('sv-' + k).textContent = v; }); $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
   if (!window.__apkv) { window.__apkv = 1; fetch('/apk-version.json').then(r => r.json()).then(v => { $('apkver').textContent = v.versionName + ' (kod ' + v.versionCode + ')'; }).catch(() => {}); }
-  loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); renderCamp(); counts();
+  loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); renderCamp(); initCollapse(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
 </script></body></html>

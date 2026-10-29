@@ -494,23 +494,25 @@ const HOLIDAYS = [
     'Ordular! İlk hedefiniz Akdeniz\'dir, ileri!',
     'Yurtta sulh, cihanda sulh.',
     'Ne mutlu Türk\'üm diyene!'] },
-  { id: 'ekim29', md: '10-29', title: '29 Ekim Cumhuriyet Bayramı', quotes: [
+  { id: 'ekim29', md: '10-29', photoPrefix: 'cumhuriyet-', title: '29 Ekim Cumhuriyet Bayramı', quotes: [
     'Ne mutlu Türk\'üm diyene!',
     'Cumhuriyeti biz kurduk, onu yükseltecek ve yaşatacak sizsiniz.',
     'Benim naçiz vücudum elbet bir gün toprak olacaktır, fakat Türkiye Cumhuriyeti ilelebet payidar kalacaktır.',
     'Egemenlik kayıtsız şartsız milletindir.',
     'Yurtta sulh, cihanda sulh.'] },
-  { id: 'kasim10', md: '11-10', mourn: true, silence: '09:05', title: "10 Kasım Atatürk'ü Anma Günü", quotes: [
+  { id: 'kasim10', md: '11-10', photoPrefix: 'anma-', mourn: true, silence: '09:05', title: "10 Kasım Atatürk'ü Anma Günü", quotes: [
     'Benim naçiz vücudum elbet bir gün toprak olacaktır, fakat Türkiye Cumhuriyeti ilelebet payidar kalacaktır.',
     'Hayatta en hakiki mürşit ilimdir.',
     'Ben, manevi miras olarak hiçbir ayet, hiçbir dogma, hiçbir donmuş ve kalıplaşmış kural bırakmıyorum. Benim manevi mirasım ilim ve akıldır.',
     'Yurtta sulh, cihanda sulh.'] },
 ];
 const CELEB_DIR = path.join(__dirname, 'public/celebrate');
-const celebPhotos = mourn => [
-  ...(fs.existsSync(CELEB_DIR) ? fs.readdirSync(CELEB_DIR).filter(f => /\.(jpe?g|png|webp)$/i.test(f) && f.startsWith('anma-') === !!mourn).sort().map(f => '/celebrate/' + f) : []),
-  ...(db.celebPhotos || []).filter(p => !!p.mourn === !!mourn).map(p => '/uploads/' + p.file),
+// bir günün fotoğrafları: hazır olanlar (yalnızca 29 Ekim ve 10 Kasım için) + o güne admin'den eklenenler
+const celebPhotos = h => [
+  ...(h.photoPrefix && fs.existsSync(CELEB_DIR) ? fs.readdirSync(CELEB_DIR).filter(f => /\.(jpe?g|png|webp)$/i.test(f) && f.startsWith(h.photoPrefix)).sort().map(f => ({ url: '/celebrate/' + f })) : []),
+  ...(db.celebPhotos || []).filter(p => p.day === h.id).map(p => ({ id: p.id, url: '/uploads/' + p.file })),
 ];
+(db.celebPhotos || []).forEach(p => { if (!p.day) p.day = p.mourn ? 'kasim10' : 'ekim29'; }); // eski kayıtlar
 // gün başına mod: auto (tarihe göre), on (elle açık), off (kapalı)
 const celebMode = id => ((db.celebMode || {})[id]) || 'auto';
 function activeCelebration() {
@@ -526,7 +528,7 @@ function activeCelebration() {
       until = Date.UTC(y, m - 1, d + 1, 0, 0, 0); // bitiş: ertesi gün 03:00 İstanbul (UTC+3 sabit) = ertesi gün 00:00 UTC
     }
   }
-  return h ? { id: h.id, title: h.title, quotes: h.quotes, mourn: !!h.mourn, silence: h.silence || null, photos: celebPhotos(h.mourn), until } : null;
+  return h ? { id: h.id, title: h.title, quotes: h.quotes, mourn: !!h.mourn, silence: h.silence || null, photos: celebPhotos(h).map(x => x.url), until } : null;
 }
 let lastCeleb = null;
 setInterval(() => { const a = activeCelebration(), k = a ? a.id : null; if (k !== lastCeleb) { lastCeleb = k; broadcast({ type: 'state', state: publicState() }); } }, 30 * 1000);
@@ -801,12 +803,8 @@ app.post('/api/admin/backups/:name/restore', (req, res) => {
 });
 app.get('/api/admin/celebrate', (_, res) => res.json({
   enabled: db.showCelebrations !== false,
-  holidays: HOLIDAYS.map(({ id, md, title, mourn }) => ({ id, md, title, mourn: !!mourn, mode: celebMode(id) })),
+  holidays: HOLIDAYS.map(h => ({ id: h.id, md: h.md, title: h.title, mourn: !!h.mourn, mode: celebMode(h.id), photos: celebPhotos(h) })),
   active: (activeCelebration() || {}).id || null,
-  photos: [
-    ...[false, true].flatMap(m => celebPhotos(m).filter(u => u.startsWith('/celebrate/')).map(url => ({ url, mourn: m }))),
-    ...(db.celebPhotos || []).map(p => ({ id: p.id, url: '/uploads/' + p.file, mourn: !!p.mourn })),
-  ],
 }));
 app.put('/api/admin/celebrate/mode', (req, res) => {
   const { id, mode } = req.body || {};
@@ -824,12 +822,13 @@ app.post('/api/admin/celebrate/preview', (req, res) => {
   setTimeout(() => broadcast({ type: 'state', state: publicState() }), 3 * 60 * 1000 + 500);
 });
 app.post('/api/admin/celebrate/photos', upload.single('file'), (req, res) => {
-  const f = req.file;
+  const f = req.file, day = req.body && req.body.day;
   if (!f) return res.status(400).json({ error: 'dosya yok' });
+  if (!HOLIDAYS.some(h => h.id === day)) { fs.rmSync(f.path, { force: true }); return res.status(400).json({ error: 'geçersiz gün' }); }
   if (!/\.(jpe?g|png|webp)$/i.test(f.originalname) || f.size > 8 * 1024 * 1024) { fs.rmSync(f.path, { force: true }); return res.status(400).json({ error: 'JPG/PNG/WEBP ve en çok 8 MB olmalı' }); }
   db.celebPhotos = db.celebPhotos || [];
-  if (db.celebPhotos.length >= 20) { fs.rmSync(f.path, { force: true }); return res.status(400).json({ error: 'En fazla 20 fotoğraf' }); }
-  db.celebPhotos.push({ id: uid(), file: f.filename, mourn: req.body.mourn === '1' });
+  if (db.celebPhotos.filter(x => x.day === day).length >= 12) { fs.rmSync(f.path, { force: true }); return res.status(400).json({ error: 'Bir güne en fazla 12 fotoğraf eklenebilir' }); }
+  db.celebPhotos.push({ id: uid(), file: f.filename, day });
   changed(); res.json({ ok: true });
 });
 app.delete('/api/admin/celebrate/photos/:id', (req, res) => {
