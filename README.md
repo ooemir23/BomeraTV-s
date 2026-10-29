@@ -14,5 +14,5 @@ Bulutta kalıcı disk bağlayıp `DATA_DIR` olarak verin (videolar ve veriler or
 
 ## Android uygulaması (APK) güncelleme
 - Yeni sürüm: `android/app/build.gradle` içinde `versionCode`/`versionName` artırılır, APK derlenip `public/BomeraTV.apk` olarak değiştirilir ve `public/apk-version.json` aynı sürümle güncellenir.
-- Deploy sonrası, daha eski sürümü çalıştıran (v1.3 ve sonrası) kutularda TV'nin sağ altında "Yeni sürüm hazır" bildirimi çıkar; kumandada OK tuşu APK'yı indirip yükleyiciyi açar.
+- Deploy sonrası, v1.4 ve sonrasını çalıştıran kutularda kumandadaki Menü tuşu bir panel açar (kurulu sürüm, sunucudaki sürüm, "Güncellemeyi kontrol et"). Yeni sürüm varsa panelde "Yeni sürümü indir ve kur" çıkar; OK APK yı indirip yükleyiciyi açar. Geri tuşu paneli kapatır.
 - APK aynı (debug) anahtarla imzalanmalıdır, aksi halde üzerine kurulmaz.

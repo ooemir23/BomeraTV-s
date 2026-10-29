@@ -18,6 +18,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
+import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -202,20 +203,26 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
-    /** Kumandadaki yenile/menü tuşu sayfayı yeniler; geri tuşu uygulamadan çıkmaz (TV ekranı kapanmasın). */
+    /** Menü tuşu sayfadaki menüyü (sürüm, güncelleme kontrolü) açar/kapatır; geri tuşu menüyü kapatır ama uygulamadan çıkmaz (TV ekranı kapanmasın). */
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_F5) { web.reload(); return true; }
-        if (keyCode == KeyEvent.KEYCODE_BACK) return true;
-        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
-            // güncelleme bildirimi ekrandaysa kumandadaki OK tuşu güncellemeyi başlatır
-            web.evaluateJavascript("window.__updateKey && window.__updateKey();", null);
+        if (keyCode == KeyEvent.KEYCODE_MENU) {
+            web.evaluateJavascript("(window.__menu ? (window.__menu(), 1) : 0)", new ValueCallback<String>() {
+                @Override public void onReceiveValue(String v) { if (!"1".equals(v)) web.reload(); }
+            });
+            return true;
         }
+        if (keyCode == KeyEvent.KEYCODE_F5) { web.reload(); return true; }
+        if (keyCode == KeyEvent.KEYCODE_BACK) { web.evaluateJavascript("window.__menuClose && window.__menuClose();", null); return true; }
         return super.onKeyDown(keyCode, event);
     }
 
     /** Sayfanın APK içinde çalıştığını anlaması için (window.BomeraNative). */
     private class Bridge {
         @JavascriptInterface public boolean isNative() { return true; }
+
+        @JavascriptInterface public String versionName() {
+            try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception e) { return ""; }
+        }
 
         /** Kurulu uygulamanın sürüm kodu (güncelleme bildirimi için). */
         @JavascriptInterface public int versionCode() {
