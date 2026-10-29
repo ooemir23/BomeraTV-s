@@ -310,6 +310,17 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="bken" onchange="api('PUT','/options',{showBooks:this.checked},this.checked?'Kitap sayfası açıldı':'Kitap sayfası kapatıldı')"><i></i></label><div class="body"><b>Yeni çıkan kitaplar sayfasını ekranda göster</b></div></div>
   </div>
   <div class="card">
+    <h2>Resmî Gün Kutlaması</h2>
+    <p class="hint">23 Nisan, 19 Mayıs, 30 Ağustos ve 29 Ekim'de ekranın üstünde dalgalanan Türk bayrağı ve Atatürk sözleri çıkar, arada fotoğraflar gösterilir. Gün başında (00:00) açılır, ertesi gün <b>03:00</b>'te kendiliğinden kalkar.</p>
+    <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="cben" onchange="api('PUT','/options',{showCelebrations:this.checked},this.checked?'Kutlamalar açıldı':'Kutlamalar kapatıldı')"><i></i></label><div class="body"><b>Resmî günlerde kutlama bandını göster</b></div></div>
+    <label class="f">Önizleme (ekranda 3 dakika görünür)</label>
+    <div class="row" id="cbprev" style="margin-bottom:14px"></div>
+    <label class="f">Fotoğraflar</label>
+    <div id="cbphotos" style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px"></div>
+    <div class="row"><label class="btn ghost" style="cursor:pointer">Fotoğraf ekle<input type="file" id="cbfile" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="cbUpload(this)"></label></div>
+    <p class="hint" style="margin:10px 0 0">Hazır fotoğraflar Vikimedya Commons'taki kamu malı Atatürk görselleridir (siyah-beyaz gösterilir). Kendi fotoğraflarınızı ekleyebilirsiniz (en çok 20, 8 MB).</p>
+  </div>
+  <div class="card">
     <h2>Tarihte Bugün</h2>
     <p class="hint">Vikipedi'den (Türkçe) bugünün tarihinde yaşanmış 6 olay. Anahtar gerekmez, günde bir kez çekilir.</p>
     <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="otden" onchange="api('PUT','/options',{showOnThisDay:this.checked},this.checked?'Tarihte bugün açıldı':'Tarihte bugün kapatıldı')"><i></i></label><div class="body"><b>Tarihte bugün sayfasını ekranda göster</b></div></div>
@@ -389,6 +400,24 @@ const DEFAULTS = ['uefa.champions','uefa.europa','tur.1','tur.2','esp.1','eng.1'
 function toast(msg, err) {
   const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
   $('toasts').appendChild(t); setTimeout(() => t.remove(), 3500);
+}
+async function loadCeleb() {
+  try {
+    const c = await (await fetch('/api/admin/celebrate')).json();
+    $('cben').checked = c.enabled;
+    $('cbprev').innerHTML = c.holidays.map(h => `<button class="btn ghost" onclick="api('POST','/celebrate/preview',{id:'${h.id}'},'Önizleme ekranda')">${h.title.split(' ').slice(0, 2).join(' ')}</button>`).join('') + '<button class="btn ghost" onclick="api(\'POST\',\'/celebrate/preview\',{},\'Önizleme kapatıldı\')">Önizlemeyi kapat</button>';
+    $('cbphotos').innerHTML = c.photos.map(p => `<div style="position:relative"><img src="${p.url}" style="height:90px;border-radius:8px;filter:grayscale(1);display:block">${p.id ? `<button class="btn ghost" style="position:absolute;right:4px;top:4px;padding:2px 8px" onclick="api('DELETE','/celebrate/photos/${p.id}',undefined,'Fotoğraf silindi')">Sil</button>` : ''}</div>`).join('');
+  } catch (e) {}
+}
+async function cbUpload(inp) {
+  const f = inp.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  try {
+    const r = await fetch('/api/admin/celebrate/photos', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Yüklenemedi');
+    toast('Fotoğraf eklendi'); await load();
+  } catch (e) { toast(e.message, true); }
+  inp.value = '';
 }
 async function api(method, path, body, ok) {
   try {
@@ -558,7 +587,7 @@ function renderInfo() {
   const c = db.pharmacy || {};
   $('phen').checked = c.enabled !== false; $('phil').value = c.il || 'İstanbul'; $('phdist').value = (c.districts || []).join(', '); $('phkey').value = c.key || '';
   const nc = db.news || {}; $('nwen').checked = nc.enabled !== false; $('nwtag').value = nc.tag || 'general'; $('nwhours').value = String(nc.hours || 3); $('nwkey').value = nc.key || '';
-  $('otden').checked = db.showOnThisDay !== false; $('bken').checked = db.showBooks !== false;
+  $('otden').checked = db.showOnThisDay !== false; $('bken').checked = db.showBooks !== false; loadCeleb();
   const o = pub.onThisDay;
   $('otdlist').innerHTML = o && o.items.length ? o.items.map(e => `<div class="item"><b style="color:var(--accent2);min-width:56px">${esc(e.year)}</b><div class="body"><span style="white-space:normal;color:var(--text)">${esc(e.text)}</span></div></div>`).join('') : '<div class="empty">Bugünün listesi henüz alınmadı.</div>';
   loadFresh();

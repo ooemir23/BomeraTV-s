@@ -476,6 +476,53 @@ function auth(req, res, next) {
 app.use(['/admin.html', '/admin', '/api/admin'], auth);
 app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
 
+// ---- Resmî gün kutlamaları: gün başından ertesi gün 03:00'e kadar üstte bayrak + Atatürk sözleri, arada fotoğraflar ----
+const HOLIDAYS = [
+  { id: 'nisan23', md: '04-23', title: '23 Nisan Ulusal Egemenlik ve Çocuk Bayramı', quotes: [
+    'Egemenlik kayıtsız şartsız milletindir.',
+    'Çocuklar geleceğimizin güvencesi, yaşatıcısıdır.',
+    'Küçük hanımlar, küçük beyler! Sizler hepiniz geleceğin bir gül bahçesinin gülleri, yıldızları, ışıklarısınız.',
+    'Yurtta sulh, cihanda sulh.'] },
+  { id: 'mayis19', md: '05-19', title: "19 Mayıs Atatürk'ü Anma, Gençlik ve Spor Bayramı", quotes: [
+    'Bütün ümidim gençliktedir.',
+    'Ey Türk gençliği! Birinci vazifen, Türk istiklalini, Türk Cumhuriyetini ilelebet muhafaza ve müdafaa etmektir.',
+    'Hayatta en hakiki mürşit ilimdir.',
+    'Ne mutlu Türk\'üm diyene!'] },
+  { id: 'agustos30', md: '08-30', title: '30 Ağustos Zafer Bayramı', quotes: [
+    'Hatt-ı müdafaa yoktur, sath-ı müdafaa vardır. O satıh bütün vatandır.',
+    'Ordular! İlk hedefiniz Akdeniz\'dir, ileri!',
+    'Yurtta sulh, cihanda sulh.',
+    'Ne mutlu Türk\'üm diyene!'] },
+  { id: 'ekim29', md: '10-29', title: '29 Ekim Cumhuriyet Bayramı', quotes: [
+    'Ne mutlu Türk\'üm diyene!',
+    'Cumhuriyeti biz kurduk, onu yükseltecek ve yaşatacak sizsiniz.',
+    'Benim naçiz vücudum elbet bir gün toprak olacaktır, fakat Türkiye Cumhuriyeti ilelebet payidar kalacaktır.',
+    'Egemenlik kayıtsız şartsız milletindir.',
+    'Yurtta sulh, cihanda sulh.'] },
+];
+const CELEB_DIR = path.join(__dirname, 'public/celebrate');
+const celebPhotos = () => [
+  ...(fs.existsSync(CELEB_DIR) ? fs.readdirSync(CELEB_DIR).filter(f => /\.(jpe?g|png|webp)$/i.test(f)).sort().map(f => '/celebrate/' + f) : []),
+  ...(db.celebPhotos || []).map(p => '/uploads/' + p.file),
+];
+function activeCelebration() {
+  if (db.showCelebrations === false) return null;
+  let h = null, until = 0;
+  if (db.celebPreview && db.celebPreviewUntil > Date.now()) { h = HOLIDAYS.find(x => x.id === db.celebPreview); until = db.celebPreviewUntil; }
+  if (!h) {
+    const today = ymd(new Date()).slice(5), early = ymd(new Date(Date.now() - 3 * HOUR)).slice(5); // 03:00'e kadar önceki günün kutlaması sürer
+    h = HOLIDAYS.find(x => x.md === today || x.md === early);
+    if (h) {
+      const [y, m, d] = ymd(new Date(Date.now() - (h.md === today ? 0 : 3 * HOUR))).split('-').map(Number);
+      // bitiş: ertesi gün 03:00 İstanbul (UTC+3 sabit) = ertesi gün 00:00 UTC
+      until = Date.UTC(y, m - 1, d + 1, 0, 0, 0);
+    }
+  }
+  return h ? { id: h.id, title: h.title, quotes: h.quotes, photos: celebPhotos(), until } : null;
+}
+let lastCeleb = null;
+setInterval(() => { const a = activeCelebration(), k = a ? a.id : null; if (k !== lastCeleb) { lastCeleb = k; broadcast({ type: 'state', state: publicState() }); } }, 30 * 1000);
+
 const publicState = () => ({
   videos: db.videos.filter(v => v.status !== 'processing' || v.reopt).map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file, type: v.type || 'video' })),
   imageSeconds: db.imageSeconds,
@@ -493,6 +540,7 @@ const publicState = () => ({
   onThisDay: onThisDay && onThisDay.date === ymd(new Date()) ? onThisDay : null,
   showNews: newsCfg().enabled !== false,
   showBooks: db.showBooks !== false,
+  celebration: activeCelebration(),
   books: books && Date.now() - Date.parse(books.updated) < 72 * HOUR ? { items: books.items } : null,
   news: news && Date.now() - Date.parse(news.updated) < 12 * HOUR ? { items: news.items } : null, // 12 saatten eski haber gösterilmez
   showPharmacy: pharmCfg().enabled !== false,
@@ -724,10 +772,39 @@ app.post('/api/admin/backups/:name/restore', (req, res) => {
     res.json({ ok: true, missingFiles: missing });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
+app.get('/api/admin/celebrate', (_, res) => res.json({
+  enabled: db.showCelebrations !== false,
+  holidays: HOLIDAYS.map(({ id, md, title }) => ({ id, md, title })),
+  active: (activeCelebration() || {}).id || null,
+  photos: [...celebPhotos().filter(u => u.startsWith('/celebrate/')).map(url => ({ url })), ...(db.celebPhotos || []).map(p => ({ id: p.id, url: '/uploads/' + p.file }))],
+}));
+app.post('/api/admin/celebrate/preview', (req, res) => {
+  const id = req.body && req.body.id;
+  if (!id) { db.celebPreview = null; db.celebPreviewUntil = 0; }
+  else if (HOLIDAYS.some(h => h.id === id)) { db.celebPreview = id; db.celebPreviewUntil = Date.now() + 3 * 60 * 1000; }
+  else return res.status(400).json({ error: 'bilinmeyen gün' });
+  changed(); res.json({ ok: true });
+  setTimeout(() => broadcast({ type: 'state', state: publicState() }), 3 * 60 * 1000 + 500);
+});
+app.post('/api/admin/celebrate/photos', upload.single('file'), (req, res) => {
+  const f = req.file;
+  if (!f) return res.status(400).json({ error: 'dosya yok' });
+  if (!/\.(jpe?g|png|webp)$/i.test(f.originalname) || f.size > 8 * 1024 * 1024) { fs.rmSync(f.path, { force: true }); return res.status(400).json({ error: 'JPG/PNG/WEBP ve en çok 8 MB olmalı' }); }
+  db.celebPhotos = db.celebPhotos || [];
+  if (db.celebPhotos.length >= 20) { fs.rmSync(f.path, { force: true }); return res.status(400).json({ error: 'En fazla 20 fotoğraf' }); }
+  db.celebPhotos.push({ id: uid(), file: f.filename });
+  changed(); res.json({ ok: true });
+});
+app.delete('/api/admin/celebrate/photos/:id', (req, res) => {
+  const p = (db.celebPhotos || []).find(x => x.id === req.params.id);
+  if (p) { fs.rmSync(path.join(UPLOAD_DIR, p.file), { force: true }); db.celebPhotos = db.celebPhotos.filter(x => x !== p); }
+  changed(); res.json({ ok: true });
+});
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
   if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
   if (typeof req.body.showOnThisDay === 'boolean') db.showOnThisDay = req.body.showOnThisDay;
+  if (typeof req.body.showCelebrations === 'boolean') db.showCelebrations = req.body.showCelebrations;
   if (typeof req.body.showBooks === 'boolean') { db.showBooks = req.body.showBooks; if (db.showBooks) refreshBooks(); }
   if (['auto', 'lite', 'full'].includes(req.body.fxMode)) db.fxMode = req.body.fxMode;
   if (req.body.safeInset !== undefined && isFinite(Number(req.body.safeInset))) db.safeInset = Math.max(0, Math.min(12, Math.round(Number(req.body.safeInset) * 2) / 2));

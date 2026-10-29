@@ -201,6 +201,22 @@ html.lite #traffic::after{box-shadow:none}
 #guide b{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000;color:#7CFC00;font:700 2.2vh/1.3 monospace;padding:1vh 1.6vw;text-align:center;border:.3vh solid #7CFC00;white-space:nowrap}
 #guide i{position:absolute;width:3vh;height:3vh;background:#7CFC00}
 #guide i:nth-child(1){left:0;top:0}#guide i:nth-child(2){right:0;top:0}#guide i:nth-child(3){left:0;bottom:0}#guide i:nth-child(4){right:0;bottom:0}
+/* resmî gün kutlaması */
+#celeb{position:absolute;left:2vw;top:2.4vh;width:69vw;height:14vh;z-index:4;display:none;align-items:center;gap:1.6vw;padding:0 2vw 0 1.4vw;border-radius:16px;background:linear-gradient(100deg,rgba(150,10,22,.92),rgba(96,8,16,.92) 55%,rgba(150,10,22,.92));border:1px solid rgba(201,149,92,.7);box-shadow:0 1.6vh 4vh rgba(0,0,0,.5);overflow:hidden}
+#app.celeb ~ #celeb,#celeb.on{display:flex}
+#app.celeb #stage{padding-top:calc(2.4vh + 14vh + 1.4vh)}
+#cflagw{position:relative;flex:none;height:11vh;padding-left:.5vh}
+#cflagw::before{content:"";position:absolute;left:0;top:-.8vh;bottom:-2.4vh;width:.5vh;border-radius:.3vh;background:linear-gradient(90deg,#8a8f94,#e8eaec 50%,#6c7176)}
+#cflag{height:100%;width:auto;display:block}
+#cmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:.7vh;transition:opacity .6s}
+#cmid.out{opacity:0}
+#ctitle{font-size:1.5vh;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#f3cf9e}
+#cquote{font-size:2.7vh;font-weight:600;line-height:1.3;color:#fff;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#cquote::after{content:"  — Mustafa Kemal Atatürk";font-size:1.5vh;font-weight:500;color:#f3cf9e;letter-spacing:.05em;white-space:nowrap}
+#cphoto{position:absolute;inset:.6vh;z-index:6;border-radius:15px;overflow:hidden;background:#0d0d0e;opacity:0;pointer-events:none;transition:opacity .9s}
+#cphoto.on{opacity:1}
+#cphoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:grayscale(1) contrast(1.05)}
+#cphoto b{position:absolute;left:0;right:0;bottom:0;padding:2.4vh 2vw 1.8vh;background:linear-gradient(transparent,rgba(120,8,16,.92));color:#fff;font-size:2vh;font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-align:center}
 </style></head><body>
 <div id="root">
 <div id="app">
@@ -214,6 +230,7 @@ html.lite #traffic::after{box-shadow:none}
   <div id="ticker"><div id="tclock"><b id="tc-time">--:--</b><small id="tc-date"></small></div><div id="tlabel"><span id="tl">Canlı Skorlar</span></div><div id="tview"><div id="ttrack"><div id="ta"></div><div id="tb"></div></div></div></div>
 </div>
 <div id="bday"><p id="btxt"></p></div>
+<div id="celeb"><div id="cflagw"><canvas id="cflag" width="270" height="180"></canvas></div><div id="cmid"><span id="ctitle"></span><p id="cquote"></p></div></div>
 </div>
 <div id="guide"><i></i><i></i><i></i><i></i><b id="gtxt"></b></div>
 <script>
@@ -553,6 +570,7 @@ function preloadLogos(s) { // tüm sayfalardaki logoları arka planda indir: say
 }
 function setState(s) {
   preloadLogos(s);
+  setCeleb(s.celebration);
   applySafe(s.safe || { L: s.safeInset, R: s.safeInset, T: s.safeInset, B: s.safeInset }, s.safeGuide);
   const ids = s.videos.map(x => x.id).join();
   const changed = ids !== videos.map(x => x.id).join();
@@ -715,6 +733,71 @@ function birthday(names, dur) {
   b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
   clearTimeout(bt); bt = setTimeout(() => b.classList.remove('on'), dur * 1000);
 }
+// ---- resmî gün kutlaması: dalgalanan bayrak, Atatürk sözleri, arada fotoğraflar ----
+const celeb = { on: false, id: null, until: 0, raf: 0, last: 0, t: 0, base: null, qi: 0, qt: 0, pt: 0, pi: 0 };
+function celebBase() {
+  const c = document.createElement('canvas'); c.width = 270; c.height = 180; const g = c.getContext('2d'), H = 180;
+  g.fillStyle = '#E30A17'; g.fillRect(0, 0, 270, H);
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(0.5 * H, H / 2, 0.25 * H, 0, 7); g.fill(); // hilalin dış dairesi
+  g.fillStyle = '#E30A17'; g.beginPath(); g.arc(0.5 * H + 0.0625 * H, H / 2, 0.2 * H, 0, 7); g.fill(); // iç daire
+  const cx = 0.5 * H + 0.3 * H + 0.1 * H, cy = H / 2, R = 0.125 * H; // beş köşeli yıldız, bir ucu sağa bakar
+  g.fillStyle = '#fff'; g.beginPath();
+  for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5, r = i % 2 ? R * 0.382 : R, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.closePath(); g.fill();
+  return c;
+}
+function celebFrame(ts) {
+  if (!celeb.on) return;
+  celeb.raf = requestAnimationFrame(celebFrame);
+  const gap = window.__lite ? 90 : 33;
+  if (ts - celeb.last < gap) return;
+  celeb.last = ts; celeb.t += gap / 1000;
+  const cv = document.getElementById('cflag'), g = cv.getContext('2d'), W = 270, H = 180, step = window.__lite ? 6 : 3, amp = 9;
+  g.clearRect(0, 0, W, H);
+  for (let x = 0; x < W; x += step) {
+    const k = x / W, ph = k * 7 - celeb.t * 3.2, dy = Math.sin(ph) * amp * (0.25 + k * 0.75);
+    g.drawImage(celeb.base, x, 0, step, H, x, 12 + dy, step, H - 24);
+    const sh = Math.cos(ph) * 0.22 * (0.3 + k); // dalga yamaçlarında gölge/ışık
+    g.fillStyle = sh > 0 ? 'rgba(255,255,255,' + sh * 0.5 + ')' : 'rgba(0,0,0,' + -sh + ')';
+    g.fillRect(x, 12 + dy, step, H - 24);
+  }
+}
+function celebPhoto() {
+  const c = window.__celeb; if (!celeb.on || !c || !c.photos.length) return;
+  let ph = document.getElementById('cphoto');
+  if (!ph) { ph = document.createElement('div'); ph.id = 'cphoto'; ph.innerHTML = '<img alt=""><b></b>'; document.getElementById('frame').appendChild(ph); }
+  const url = c.photos[celeb.pi++ % c.photos.length];
+  ph.querySelector('img').src = url; ph.querySelector('b').textContent = c.title;
+  setTimeout(() => ph.classList.add('on'), 80);
+  setTimeout(() => ph.classList.remove('on'), 12000);
+}
+function celebQuote() {
+  const c = window.__celeb; if (!celeb.on || !c) return;
+  const m = document.getElementById('cmid'), q = document.getElementById('cquote');
+  m.classList.add('out');
+  setTimeout(() => { q.textContent = c.quotes[celeb.qi++ % c.quotes.length]; m.classList.remove('out'); }, 600);
+}
+function setCeleb(c) {
+  const on = !!(c && c.until > Date.now());
+  window.__celeb = on ? c : null;
+  if (on && (!celeb.on || celeb.id !== c.id)) {
+    celeb.on = true; celeb.id = c.id; celeb.until = c.until; celeb.qi = 0; celeb.pi = 0;
+    if (!celeb.base) celeb.base = celebBase();
+    document.getElementById('ctitle').textContent = c.title;
+    document.getElementById('celeb').classList.add('on'); document.getElementById('app').classList.add('celeb');
+    cancelAnimationFrame(celeb.raf); celeb.raf = requestAnimationFrame(celebFrame);
+    document.getElementById('cquote').textContent = c.quotes[celeb.qi++ % c.quotes.length];
+    clearInterval(celeb.qt); celeb.qt = setInterval(celebQuote, 11000);
+    clearInterval(celeb.pt); celeb.pt = setInterval(celebPhoto, 50000); setTimeout(celebPhoto, 6000);
+    window.__forceRender = true;
+  } else if (!on && celeb.on) {
+    celeb.on = false; celeb.id = null; cancelAnimationFrame(celeb.raf); clearInterval(celeb.qt); clearInterval(celeb.pt);
+    document.getElementById('celeb').classList.remove('on'); document.getElementById('app').classList.remove('celeb');
+    const ph = document.getElementById('cphoto'); if (ph) ph.classList.remove('on');
+    window.__forceRender = true;
+  }
+}
+setInterval(() => { if (celeb.on && celeb.until <= Date.now()) setCeleb(null); }, 15000); // bitiş saati gelince sunucu mesajı beklemeden kapan
 function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {
