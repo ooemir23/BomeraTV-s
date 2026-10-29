@@ -123,6 +123,7 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <button class="nav" data-tab="backup"><span class="ic">⛁</span>Yedekler</button>
   <button class="nav" data-tab="info"><span class="ic">ⓘ</span>Bilgi Sayfaları</button>
   <button class="nav" data-tab="reviews"><span class="ic">★</span>Yorumlar<span class="badge" id="b-reviews">0</span></button>
+  <button class="nav" data-tab="camp"><span class="ic">🎁</span>Kampanyalar<span class="badge" id="b-camp">0</span></button>
   <button class="nav" data-tab="bday"><span class="ic">🎂</span>Doğum Günü<span class="badge" id="b-bday">0</span></button>
   <div id="sidefoot"><div id="zoomctl"><button onclick="zoomBy(-0.1)" title="Küçült">A−</button><span id="zoomval">Otomatik</span><button onclick="zoomBy(0.1)" title="Büyüt">A+</button></div><a href="#" onclick="zoomAuto();return false" style="display:block;margin-bottom:8px;font-size:11px">Otomatik boyuta dön</a><a href="/" target="_blank">TV ekranını aç ↗</a></div>
 </aside>
@@ -346,6 +347,12 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <button class="btn" onclick="addReview()">Yorumu ekle</button>
   </div>
   <div class="card"><h2>Mevcut Yorumlar</h2><div id="review-list" style="margin-top:12px"></div></div>
+</section>
+
+<!-- KAMPANYALAR -->
+<section id="sec-camp">
+  <h1>Kampanyalar</h1><p class="sub">Açık olan kampanya, ekranda belirli aralıklarla tam kadraj ve QR kodlu bir kart olarak çıkar. Kapatınca hemen kalkar.</p>
+  <div id="camplist"></div>
 </section>
 
 <!-- DOĞUM GÜNÜ -->
@@ -676,6 +683,28 @@ async function addReview() {
   if (ok) { $('ra').value = ''; $('rt').value = ''; }
 }
 
+/* kampanyalar */
+function renderCamp() {
+  const list = db.campaigns || [];
+  $('b-camp').textContent = list.filter(c => c.enabled).length;
+  if (document.activeElement && /^(INPUT|SELECT)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'checkbox' && document.activeElement.closest('#camplist')) return; // yazarken yeniden çizme
+  $('camplist').innerHTML = list.map(c => `<div class="card" data-id="${c.id}">
+    <h2>☕ Google Yorum Kampanyası</h2>
+    <p class="hint">Müşteri QR kodu okutup Google'da yorum yazar; ilk yorumunda istediği sıcak içecek ikram edilir.</p>
+    <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="api('PUT','/campaigns/${c.id}',{enabled:this.checked},this.checked?'Kampanya açıldı':'Kampanya kapatıldı')"><i></i></label><div class="body"><b>Kampanya ekranda gösterilsin</b><span>${c.enabled ? 'Açık — ' + c.everyMin + ' dakikada bir, ' + c.durSec + ' sn' : 'Kapalı'}</span></div></div>
+    <div class="fld"><label class="f">Google yorum linki (QR koda dönüşür)</label><input type="text" id="cp-url-${c.id}" value="${esc(c.url)}"></div>
+    <div class="fld"><label class="f">Başlık</label><input type="text" id="cp-h-${c.id}" maxlength="90" value="${esc(c.headline)}"></div>
+    <div class="fld"><label class="f">İkram yazısı</label><input type="text" id="cp-s-${c.id}" maxlength="140" value="${esc(c.sub)}"></div>
+    <div class="fld"><label class="f">Not (küçük kutuda görünür)</label><input type="text" id="cp-n-${c.id}" maxlength="160" value="${esc(c.note)}"></div>
+    <div class="fld"><label class="f">QR altındaki yazı</label><input type="text" id="cp-q-${c.id}" maxlength="60" value="${esc(c.qrLabel)}"></div>
+    <div class="row">
+      <div class="fld" style="max-width:220px"><label class="f">Sıklık</label><select id="cp-e-${c.id}">${[1, 2, 3, 5, 10, 15].map(v => `<option value="${v}" ${v === c.everyMin ? 'selected' : ''}>${v} dakikada bir</option>`).join('')}</select></div>
+      <div class="fld" style="max-width:220px"><label class="f">Ekranda kalma</label><select id="cp-d-${c.id}">${[10, 15, 20, 30, 45].map(v => `<option value="${v}" ${v === c.durSec ? 'selected' : ''}>${v} saniye</option>`).join('')}</select></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn" onclick="saveCamp('${c.id}')">Kaydet</button><button class="btn ghost" onclick="post('/campaigns/${c.id}/test','Kart TV\'lerde gösterildi')">Şimdi TV'de göster (test)</button></div>
+  </div>`).join('');
+}
+const saveCamp = id => api('PUT', '/campaigns/' + id, { url: $('cp-url-' + id).value, headline: $('cp-h-' + id).value, sub: $('cp-s-' + id).value, note: $('cp-n-' + id).value, qrLabel: $('cp-q-' + id).value, everyMin: $('cp-e-' + id).value, durSec: $('cp-d-' + id).value }, 'Kampanya kaydedildi');
 /* doğum günü */
 function renderBday() {
   const list = db.birthdays || [];
@@ -713,7 +742,7 @@ async function load() {
   db = d; L = l; pub = pb; if (!timesDirty) times = [...(db.times || [])];
   ['L', 'R', 'T', 'B'].forEach(k => { const v = db['safe' + k] != null ? db['safe' + k] : (db.safeInset || 0); $('safe' + k).value = v; $('sv-' + k).textContent = v; }); $('guide').checked = !!db.safeGuide;
   $('fxmode').value = db.fxMode || 'auto'; $('tapi').value = db.trafficApi || ''; $('imgsec').value = db.imageSeconds; $('dur').value = db.duration;
-  loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); counts();
+  loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); renderCamp(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
 </script></body></html>

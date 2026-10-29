@@ -219,6 +219,24 @@ html.lite #traffic::after{box-shadow:none}
 #celeb.mourn #cflag{height:62%;margin-top:34%}
 #celeb.mourn #cflagw::after{content:"";position:absolute;left:.5vh;top:40%;width:1.1vh;height:.4vh;background:#000}
 #cphoto.mourn b{background:linear-gradient(transparent,rgba(0,0,0,.92))}
+/* kampanya kartı */
+#camp{position:absolute;inset:.6vh;z-index:7;border-radius:15px;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;align-items:center;justify-content:center;gap:4vw;padding:3vh 3vw;background:radial-gradient(ellipse 70% 70% at 30% 40%,#4a2f18 0%,#2a1b0f 60%,#1a110a 100%)}
+#camp.on{opacity:1}
+#camp .cl{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2vh}
+#camp .cup{height:15vh;width:auto;overflow:visible}
+#camp .cup .st{fill:none;stroke:rgba(255,255,255,.75);stroke-width:3;stroke-linecap:round;animation:steam 2.6s ease-in-out infinite}
+#camp .cup .st:nth-child(2){animation-delay:.5s}#camp .cup .st:nth-child(3){animation-delay:1s}
+@keyframes steam{0%{opacity:0;transform:translateY(8px)}40%{opacity:.9}100%{opacity:0;transform:translateY(-14px)}}
+html.lite #camp .cup .st{animation:none;opacity:.7}
+#camp h2{font-size:4.6vh;font-weight:800;line-height:1.15;color:#fff}
+#camp .sub{font-size:3.1vh;font-weight:600;line-height:1.3;color:#f3cf9e}
+#camp .stars{font-size:4vh;letter-spacing:.5vh;color:#ffc53d}
+#camp .note{font-size:2vh;font-weight:500;line-height:1.35;color:#e5d6c3;background:rgba(255,255,255,.08);border:1px dashed rgba(243,207,158,.6);border-radius:1.2vh;padding:1.2vh 1.4vw}
+#camp .cr{flex:none;display:flex;flex-direction:column;align-items:center;gap:1.6vh}
+#camp .qb{width:30vh;height:30vh;background:#fff;border-radius:2.4vh;padding:1.2vh;border:.5vh solid #c9955c;box-shadow:0 2vh 6vh rgba(0,0,0,.55)}
+#camp .qb svg{width:100%;height:100%;display:block}
+#camp .ql{font-size:2.2vh;font-weight:700;letter-spacing:.06em;color:#fff;text-align:center;max-width:32vh}
+#camp .ql small{display:block;margin-top:.5vh;font-size:1.6vh;font-weight:500;color:#f3cf9e;letter-spacing:.1em}
 #cphoto{position:absolute;inset:.6vh;z-index:6;border-radius:15px;overflow:hidden;background:#0d0d0e;opacity:0;pointer-events:none;transition:opacity .9s}
 #cphoto.on{opacity:1}
 #cphoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:grayscale(1) contrast(1.05)}
@@ -576,6 +594,7 @@ function preloadLogos(s) { // tüm sayfalardaki logoları arka planda indir: say
 }
 function setState(s) {
   preloadLogos(s);
+  setCampaigns(s.campaigns);
   setCeleb(s.celebration);
   applySafe(s.safe || { L: s.safeInset, R: s.safeInset, T: s.safeInset, B: s.safeInset }, s.safeGuide);
   const ids = s.videos.map(x => x.id).join();
@@ -814,6 +833,29 @@ setInterval(() => {
     }
   }
 }, 10000); // bitiş saati gelince sunucu mesajı beklemeden kapan
+// ---- kampanya kartı: belirli aralıklarla tam kadraj, QR kodlu duyuru ----
+const camp = { list: [], last: {}, showing: false, started: Date.now() };
+function campShow(c) {
+  if (camp.showing || !c) return;
+  camp.showing = true; camp.last[c.id] = Date.now();
+  let el = document.getElementById('camp');
+  if (!el) { el = document.createElement('div'); el.id = 'camp'; document.getElementById('frame').appendChild(el); }
+  const esc = t => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  el.innerHTML = '<div class="cl"><svg class="cup" viewBox="0 0 120 100"><path class="st" d="M40 30c-8-8 8-14 0-24"/><path class="st" d="M60 30c-8-8 8-14 0-24"/><path class="st" d="M80 30c-8-8 8-14 0-24"/>'
+    + '<path d="M22 42h76v22a30 30 0 0 1-30 30H52a30 30 0 0 1-30-30z" fill="#fff"/><path d="M98 48h6a12 12 0 0 1 0 24h-9" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M22 54h76" stroke="#c9955c" stroke-width="5"/></svg>'
+    + '<h2>' + esc(c.headline) + '</h2><div class="stars">★★★★★</div><div class="sub">' + esc(c.sub) + '</div>' + (c.note ? '<div class="note">' + esc(c.note) + '</div>' : '') + '</div>'
+    + '<div class="cr"><div class="qb">' + c.svg + '</div><div class="ql">' + esc(c.qrLabel || '') + '<small>QR KODU TELEFONUNUZLA OKUTUN</small></div></div>';
+  setTimeout(() => el.classList.add('on'), 60);
+  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { camp.showing = false; }, 900); }, (c.durSec || 15) * 1000);
+}
+function setCampaigns(list) { camp.list = list || []; }
+setInterval(() => {
+  if (camp.showing || !camp.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
+  for (const c of camp.list) {
+    const since = Date.now() - (camp.last[c.id] || camp.started - (c.everyMin || 3) * 60000 + 25000); // ilk gösterim açılıştan ~25 sn sonra
+    if (since >= (c.everyMin || 3) * 60000) { campShow(c); break; }
+  }
+}, 5000);
 function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {
@@ -824,6 +866,7 @@ function connect() {
     else if (m.type === 'weather') setWeather(m.weather);
     else if (m.type === 'traffic') setTraffic(m.traffic);
     else if (m.type === 'goal') { if (m.goal && m.goal.at && Date.now() + (window.__srvOff || 0) - m.goal.at > 60000) return; showGoal(m.goal); } // uygulama kapalıyken ya da arka plandayken atılan eski goller gösterilmez
+    else if (m.type === 'campaign') campShow(m.camp);
     else if (m.type === 'birthday') birthday(m.texts, m.duration);
   };
   ws.onclose = () => setTimeout(connect, 3000);

@@ -531,6 +531,21 @@ function activeCelebration() {
 let lastCeleb = null;
 setInterval(() => { const a = activeCelebration(), k = a ? a.id : null; if (k !== lastCeleb) { lastCeleb = k; broadcast({ type: 'state', state: publicState() }); } }, 30 * 1000);
 
+// ---- Kampanyalar: ekranda belirli aralıklarla tam kadraj çıkan duyuru kartları (QR kodlu) ----
+const CAMP_QR = url => QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#14100c', light: '#ffffff' } });
+if (!Array.isArray(db.campaigns) || !db.campaigns.length) db.campaigns = [{
+  id: 'google-yorum', kind: 'review', enabled: true,
+  url: 'https://g.page/r/CThl3eBpiSY5EAE/review',
+  headline: 'Yorumunuz bizim için çok değerli!',
+  sub: 'İlk yorumunuzda istediğiniz sıcak içecek ikramımızdır ☕',
+  note: 'Not: Yorum yaptıktan sonra lütfen bir yetkiliye haber verin.',
+  qrLabel: "Google'da bizi değerlendirin",
+  everyMin: 3, durSec: 15,
+}];
+(async () => { let ch = false; for (const c of db.campaigns) if (!c.svg && c.url) { try { c.svg = await CAMP_QR(c.url); ch = true; } catch {} } if (ch) save(); })();
+const pubCamp = ({ id, headline, sub, note, qrLabel, svg, everyMin, durSec }) => ({ id, headline, sub, note, qrLabel, svg, everyMin, durSec });
+const publicCampaigns = () => db.campaigns.filter(c => c.enabled && c.svg).map(pubCamp);
+
 const publicState = () => ({
   videos: db.videos.filter(v => v.status !== 'processing' || v.reopt).map(v => ({ id: v.id, name: v.name, url: '/uploads/' + v.file, type: v.type || 'video' })),
   imageSeconds: db.imageSeconds,
@@ -549,6 +564,7 @@ const publicState = () => ({
   showNews: newsCfg().enabled !== false,
   showBooks: db.showBooks !== false,
   celebration: activeCelebration(),
+  campaigns: publicCampaigns(),
   books: books && Date.now() - Date.parse(books.updated) < 72 * HOUR ? { items: books.items } : null,
   news: news && Date.now() - Date.parse(news.updated) < 12 * HOUR ? { items: news.items } : null, // 12 saatten eski haber gösterilmez
   showPharmacy: pharmCfg().enabled !== false,
@@ -817,6 +833,29 @@ app.delete('/api/admin/celebrate/photos/:id', (req, res) => {
   const p = (db.celebPhotos || []).find(x => x.id === req.params.id);
   if (p) { fs.rmSync(path.join(UPLOAD_DIR, p.file), { force: true }); db.celebPhotos = db.celebPhotos.filter(x => x !== p); }
   changed(); res.json({ ok: true });
+});
+app.put('/api/admin/campaigns/:id', async (req, res) => {
+  try {
+    const c = db.campaigns.find(x => x.id === req.params.id);
+    if (!c) return res.status(404).json({ error: 'bulunamadı' });
+    const b = req.body || {}, str = (v, n) => String(v).trim().slice(0, n);
+    if (typeof b.enabled === 'boolean') c.enabled = b.enabled;
+    for (const [k, n] of [['headline', 90], ['sub', 140], ['note', 160], ['qrLabel', 60]]) if (typeof b[k] === 'string') c[k] = str(b[k], n);
+    if (b.everyMin !== undefined) c.everyMin = Math.max(1, Math.min(60, Math.round(Number(b.everyMin)) || 3));
+    if (b.durSec !== undefined) c.durSec = Math.max(8, Math.min(60, Math.round(Number(b.durSec)) || 15));
+    if (typeof b.url === 'string' && b.url.trim() !== c.url) {
+      const u = b.url.trim();
+      if (!/^https?:\/\/\S+$/i.test(u) || u.length > 300) throw new Error('Geçerli bir web adresi (https://...) girin');
+      c.url = u; c.svg = await CAMP_QR(u);
+    }
+    if (c.enabled && !c.svg) c.svg = await CAMP_QR(c.url);
+    changed(); res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.post('/api/admin/campaigns/:id/test', (req, res) => {
+  const c = db.campaigns.find(x => x.id === req.params.id && x.svg);
+  if (!c) return res.status(404).json({ error: 'bulunamadı' });
+  broadcast({ type: 'campaign', camp: pubCamp(c) }); res.json({ ok: true });
 });
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
