@@ -234,6 +234,8 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <p class="hint">Her ülke liginin maç sayfalarından sonra güncel puan durumu tablosu gösterilir. Kupalarda (Şampiyonlar Ligi gibi), gruplu liglerde ve TFF 1. Lig'de puan durumu verisi yoktur, tablo gösterilmez.</p>
     <div class="item" style="margin-bottom:0"><label class="sw"><input type="checkbox" id="showst" onchange="api('PUT','/options',{showStandings:this.checked},this.checked?'Puan durumu açıldı':'Puan durumu kapatıldı')"><i></i></label>
       <div class="body"><b>Puan durumunu ekranda göster</b></div></div>
+    <p class="hint" style="margin:1.2em 0 .5em">Lig bazında seçim: kapattığınız ligin puan durumu ekranda ve alt bantta çıkmaz (maçları yine gösterilir). Yalnızca "Lig Seçimi"nde seçili ve puan durumu verisi olan ligler listelenir.</p>
+    <div id="tblleagues" class="chips"></div>
   </div>
   <div class="card">
     <h2>Elle Maç Ekle</h2><p class="hint">Otomatik listede olmayan bir maçı (örneğin özel bir etkinlik) buradan ekleyebilirsiniz.</p>
@@ -663,7 +665,19 @@ async function testPharm() {
 }
 
 /* puan durumu */
-function renderChannels() { $('showst').checked = db.showStandings !== false; }
+function renderChannels() { $('showst').checked = db.showStandings !== false; renderTblLeagues(); }
+function renderTblLeagues() {
+  const hide = L.hideTables || [];
+  const list = L.catalog.filter(l => L.enabled.includes(l.code) && (L.tables || []).includes(l.code));
+  $('tblleagues').innerHTML = list.length ? list.map(l => `<div class="chip ${hide.includes(l.code) ? '' : 'on'}" onclick="toggleTable('${l.code}')"><span class="tick">${hide.includes(l.code) ? '' : '✓'}</span>${esc(l.label)}</div>`).join('') : '<span class="hint">Puan durumu olan seçili lig yok.</span>';
+}
+async function toggleTable(c) {
+  const hide = L.hideTables || [];
+  L.hideTables = hide.includes(c) ? hide.filter(x => x !== c) : [...hide, c];
+  renderTblLeagues();
+  const ok = await api('PUT', '/options', { hideTables: L.hideTables });
+  if (ok) toast(L.hideTables.includes(c) ? 'Puan durumu bu ligde kapatıldı' : 'Puan durumu bu ligde açıldı');
+}
 
 /* QR kodlar */
 function qrKind() { const w = $('qkind').value === 'wifi'; $('qlink').style.display = w ? 'none' : 'flex'; $('qwifi').style.display = w ? 'flex' : 'none'; }

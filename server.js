@@ -578,7 +578,7 @@ const publicState = () => ({
   safe: ['L', 'R', 'T', 'B'].reduce((o, k) => { const v = db['safe' + k]; o[k] = Math.max(0, Math.min(20, Number(v !== undefined && v !== null ? v : db.safeInset) || 0)); return o; }, {}),
   safeGuide: !!db.safeGuide,
   qrs: (db.qrs || []).map(({ id, label, svg, side }) => ({ id, label, svg, side: side === 'left' ? 'left' : 'right' })),
-  standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code)).map(([code, label]) => [label, standings.get(code).map(r => ({ ...r, logo: localLogo(r.logo) }))])),
+  standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code) && !(db.hideTables || []).includes(code)).map(([code, label]) => [label, standings.get(code).map(r => ({ ...r, logo: localLogo(r.logo) }))])),
   rates,
   weather,
   traffic,
@@ -688,6 +688,8 @@ app.get('/api/admin/db', (_, res) => res.json(db));
 app.get('/api/admin/leagues', (_, res) => res.json({
   catalog: CATALOG.map(([code, label, group]) => ({ code, label, group })),
   enabled: enabledLeagues().map(([code]) => code),
+  tables: CATALOG.filter(([code, , group]) => group !== 'Avrupa Kupaları' && !NO_TABLE.has(code)).map(([code]) => code),
+  hideTables: db.hideTables || [],
 }));
 function qrText(b) {
   if (b.kind === 'wifi') {
@@ -889,6 +891,7 @@ app.post('/api/admin/campaigns/:id/test', (req, res) => {
 });
 app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
+  if (Array.isArray(req.body.hideTables)) db.hideTables = req.body.hideTables.filter(c => CATALOG.some(([k]) => k === c));
   if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
   if (typeof req.body.showOnThisDay === 'boolean') db.showOnThisDay = req.body.showOnThisDay;
   if (typeof req.body.showCelebrations === 'boolean') db.showCelebrations = req.body.showCelebrations;
