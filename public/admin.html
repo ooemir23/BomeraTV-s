@@ -311,14 +311,14 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   </div>
   <div class="card">
     <h2>Resmî Gün Kutlaması</h2>
-    <p class="hint">23 Nisan, 19 Mayıs, 30 Ağustos ve 29 Ekim'de ekranın üstünde dalgalanan Türk bayrağı ve Atatürk sözleri çıkar, arada fotoğraflar gösterilir. Gün başında (00:00) açılır, ertesi gün <b>03:00</b>'te kendiliğinden kalkar.</p>
+    <p class="hint">23 Nisan, 19 Mayıs, 30 Ağustos, 29 Ekim ve 10 Kasım'da ekranın üstünde dalgalanan Türk bayrağı ve Atatürk sözleri çıkar, arada fotoğraflar gösterilir. Gün başında (00:00) açılır, ertesi gün <b>03:00</b>'te kendiliğinden kalkar.</p>
     <div class="item" style="margin-bottom:14px"><label class="sw"><input type="checkbox" id="cben" onchange="api('PUT','/options',{showCelebrations:this.checked},this.checked?'Kutlamalar açıldı':'Kutlamalar kapatıldı')"><i></i></label><div class="body"><b>Resmî günlerde kutlama bandını göster</b></div></div>
-    <label class="f">Önizleme (ekranda 3 dakika görünür)</label>
-    <div class="row" id="cbprev" style="margin-bottom:14px"></div>
+    <label class="f">Özel günler</label>
+    <div id="cbdays" style="margin-bottom:14px"></div>
     <label class="f">Fotoğraflar</label>
     <div id="cbphotos" style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px"></div>
-    <div class="row"><label class="btn ghost" style="cursor:pointer">Fotoğraf ekle<input type="file" id="cbfile" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="cbUpload(this)"></label></div>
-    <p class="hint" style="margin:10px 0 0">Hazır fotoğraflar Vikimedya Commons'taki kamu malı Atatürk görselleridir (siyah-beyaz gösterilir). Kendi fotoğraflarınızı ekleyebilirsiniz (en çok 20, 8 MB).</p>
+    <div class="row"><select id="cbtype" style="max-width:240px"><option value="0">Bayram günleri için</option><option value="1">10 Kasım için</option></select><label class="btn ghost" style="cursor:pointer">Fotoğraf ekle<input type="file" id="cbfile" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="cbUpload(this)"></label></div>
+    <p class="hint" style="margin:10px 0 0">10 Kasım'da bayrak yarıya iner, bant gri-siyah olur ve saat 09:05'te bir dakika boyunca anma fotoğrafı çıkar. Hazır fotoğraflar Vikimedya Commons'taki kamu malı Atatürk görselleridir (siyah-beyaz gösterilir). Kendi fotoğraflarınızı ekleyebilirsiniz (en çok 20, 8 MB).</p>
   </div>
   <div class="card">
     <h2>Tarihte Bugün</h2>
@@ -405,13 +405,14 @@ async function loadCeleb() {
   try {
     const c = await (await fetch('/api/admin/celebrate')).json();
     $('cben').checked = c.enabled;
-    $('cbprev').innerHTML = c.holidays.map(h => `<button class="btn ghost" onclick="api('POST','/celebrate/preview',{id:'${h.id}'},'Önizleme ekranda')">${h.title.split(' ').slice(0, 2).join(' ')}</button>`).join('') + '<button class="btn ghost" onclick="api(\'POST\',\'/celebrate/preview\',{},\'Önizleme kapatıldı\')">Önizlemeyi kapat</button>';
-    $('cbphotos').innerHTML = c.photos.map(p => `<div style="position:relative"><img src="${p.url}" style="height:90px;border-radius:8px;filter:grayscale(1);display:block">${p.id ? `<button class="btn ghost" style="position:absolute;right:4px;top:4px;padding:2px 8px" onclick="api('DELETE','/celebrate/photos/${p.id}',undefined,'Fotoğraf silindi')">Sil</button>` : ''}</div>`).join('');
+    const md = d => d.slice(3).replace(/^0/, '') + ' ' + ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][+d.slice(0, 2) - 1];
+    $('cbdays').innerHTML = c.holidays.map(h => `<div class="item"><div class="body"><b>${h.title}</b><div class="hint" style="margin:2px 0 0">${md(h.md)}${c.active === h.id ? ' · <span style="color:var(--accent2)">şu an ekranda</span>' : ''}</div></div><select onchange="api('PUT','/celebrate/mode',{id:'${h.id}',mode:this.value},'Kaydedildi')" style="max-width:190px"><option value="auto"${h.mode === 'auto' ? ' selected' : ''}>Otomatik (o gün)</option><option value="on"${h.mode === 'on' ? ' selected' : ''}>Elle açık</option><option value="off"${h.mode === 'off' ? ' selected' : ''}>Kapalı</option></select><button class="btn ghost" onclick="api('POST','/celebrate/preview',{id:'${h.id}'},'Önizleme ekranda (3 dk)')">Önizle</button></div>`).join('') + '<div class="row" style="margin-top:8px"><button class="btn ghost" onclick="api(\'POST\',\'/celebrate/preview\',{},\'Önizleme kapatıldı\')">Önizlemeyi kapat</button></div>';
+    $('cbphotos').innerHTML = c.photos.map(p => `<div style="position:relative"><img src="${p.url}" style="height:90px;border-radius:8px;filter:grayscale(1);display:block"><small style="position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.7);padding:1px 6px;border-radius:6px;font-size:10px">${p.mourn ? '10 Kasım' : 'Bayram'}</small>${p.id ? `<button class="btn ghost" style="position:absolute;right:4px;top:4px;padding:2px 8px" onclick="api('DELETE','/celebrate/photos/${p.id}',undefined,'Fotoğraf silindi')">Sil</button>` : ''}</div>`).join('');
   } catch (e) {}
 }
 async function cbUpload(inp) {
   const f = inp.files[0]; if (!f) return;
-  const fd = new FormData(); fd.append('file', f);
+  const fd = new FormData(); fd.append('mourn', $('cbtype').value); fd.append('file', f);
   try {
     const r = await fetch('/api/admin/celebrate/photos', { method: 'POST', body: fd });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Yüklenemedi');

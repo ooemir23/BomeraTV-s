@@ -213,6 +213,12 @@ html.lite #traffic::after{box-shadow:none}
 #ctitle{font-size:1.5vh;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#f3cf9e}
 #cquote{font-size:2.7vh;font-weight:600;line-height:1.3;color:#fff;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 #cquote::after{content:"  — Mustafa Kemal Atatürk";font-size:1.5vh;font-weight:500;color:#f3cf9e;letter-spacing:.05em;white-space:nowrap}
+#celeb.mourn{background:linear-gradient(100deg,rgba(22,22,24,.95),rgba(48,48,52,.95) 55%,rgba(22,22,24,.95));border-color:rgba(190,190,195,.45)}
+#celeb.mourn #ctitle{color:#d8d8dc}
+#celeb.mourn #cquote::after{color:#b8b8be}
+#celeb.mourn #cflag{height:62%;margin-top:34%}
+#celeb.mourn #cflagw::after{content:"";position:absolute;left:.5vh;top:40%;width:1.1vh;height:.4vh;background:#000}
+#cphoto.mourn b{background:linear-gradient(transparent,rgba(0,0,0,.92))}
 #cphoto{position:absolute;inset:.6vh;z-index:6;border-radius:15px;overflow:hidden;background:#0d0d0e;opacity:0;pointer-events:none;transition:opacity .9s}
 #cphoto.on{opacity:1}
 #cphoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:grayscale(1) contrast(1.05)}
@@ -762,14 +768,15 @@ function celebFrame(ts) {
     g.fillRect(x, 12 + dy, step, H - 24);
   }
 }
-function celebPhoto() {
+function celebPhoto(silence) {
   const c = window.__celeb; if (!celeb.on || !c || !c.photos.length) return;
   let ph = document.getElementById('cphoto');
   if (!ph) { ph = document.createElement('div'); ph.id = 'cphoto'; ph.innerHTML = '<img alt=""><b></b>'; document.getElementById('frame').appendChild(ph); }
   const url = c.photos[celeb.pi++ % c.photos.length];
-  ph.querySelector('img').src = url; ph.querySelector('b').textContent = c.title;
+  ph.classList.toggle('mourn', !!c.mourn);
+  ph.querySelector('img').src = url; ph.querySelector('b').textContent = silence ? 'Saygı, minnet ve özlemle · ' + c.silence : c.title;
   setTimeout(() => ph.classList.add('on'), 80);
-  setTimeout(() => ph.classList.remove('on'), 12000);
+  setTimeout(() => ph.classList.remove('on'), silence ? 60000 : 12000);
 }
 function celebQuote() {
   const c = window.__celeb; if (!celeb.on || !c) return;
@@ -784,7 +791,7 @@ function setCeleb(c) {
     celeb.on = true; celeb.id = c.id; celeb.until = c.until; celeb.qi = 0; celeb.pi = 0;
     if (!celeb.base) celeb.base = celebBase();
     document.getElementById('ctitle').textContent = c.title;
-    document.getElementById('celeb').classList.add('on'); document.getElementById('app').classList.add('celeb');
+    const cb = document.getElementById('celeb'); cb.classList.add('on'); cb.classList.toggle('mourn', !!c.mourn); document.getElementById('app').classList.add('celeb');
     cancelAnimationFrame(celeb.raf); celeb.raf = requestAnimationFrame(celebFrame);
     document.getElementById('cquote').textContent = c.quotes[celeb.qi++ % c.quotes.length];
     clearInterval(celeb.qt); celeb.qt = setInterval(celebQuote, 11000);
@@ -797,7 +804,16 @@ function setCeleb(c) {
     window.__forceRender = true;
   }
 }
-setInterval(() => { if (celeb.on && celeb.until <= Date.now()) setCeleb(null); }, 15000); // bitiş saati gelince sunucu mesajı beklemeden kapan
+setInterval(() => {
+  if (celeb.on && celeb.until <= Date.now()) setCeleb(null);
+  const c = window.__celeb; // 10 Kasım 09:05: bir dakika boyunca anma fotoğrafı ve saygı mesajı
+  if (celeb.on && c && c.silence) {
+    const hm = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+    if (hm === c.silence && !celeb.silent && c.photos.length) {
+      celeb.silent = true; celebPhoto(true); setTimeout(() => { celeb.silent = false; }, 90000);
+    }
+  }
+}, 10000); // bitiş saati gelince sunucu mesajı beklemeden kapan
 function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {
