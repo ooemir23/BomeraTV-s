@@ -557,7 +557,7 @@ const publicState = () => ({
   matches: [
     ...db.matches.slice().sort((a, b) => a.time.localeCompare(b.time)).map(m => ({ ...m, day: 'Bugün' })),
     ...autoMatches.filter(m => enabledLeagues().some(([, label]) => label === m.league)),
-  ].slice(0, 30).map(m => ({ ...m, hl: localLogo(m.hl), al: localLogo(m.al), channel: (db.channels || {})[`${m.league}|${m.home}|${m.away}`] || (db.leagueChannels || {})[m.league] || null })),
+  ].slice(0, 30).map(m => ({ ...m, hl: localLogo(m.hl), al: localLogo(m.al) })),
   showStandings: db.showStandings !== false,
   trafficApi: db.trafficApi || '',
   mapAt: mapAt ? Math.round(mapAt) : null,
@@ -880,22 +880,6 @@ app.put('/api/admin/options', (req, res) => {
   changed(); res.json({ ok: true });
 });
 app.get('/api/admin/traffic/status', (_, res) => res.json({ current: traffic, secret: trafficSecret() }));
-app.put('/api/admin/channels/league', (req, res) => {
-  const { league, channel } = req.body;
-  if (!league) return res.status(400).json({ error: 'lig gerekli' });
-  db.leagueChannels = db.leagueChannels || {};
-  const v = String(channel || '').trim().slice(0, 40);
-  if (v) db.leagueChannels[league] = v; else delete db.leagueChannels[league];
-  changed(); res.json({ ok: true });
-});
-app.put('/api/admin/channels/match', (req, res) => {
-  const { key, channel } = req.body;
-  if (!key) return res.status(400).json({ error: 'maç gerekli' });
-  db.channels = db.channels || {};
-  const v = String(channel || '').trim().slice(0, 40);
-  if (v) db.channels[key] = v; else delete db.channels[key];
-  changed(); res.json({ ok: true });
-});
 app.put('/api/admin/leagues', (req, res) => {
   const valid = new Set(CATALOG.map(([code]) => code));
   db.leagues = (req.body.enabled || []).filter(c => valid.has(c));

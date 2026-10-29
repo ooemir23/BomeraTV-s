@@ -231,14 +231,6 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
       <div class="body"><b>Puan durumunu ekranda göster</b></div></div>
   </div>
   <div class="card">
-    <h2>Yayın Kanalları</h2>
-    <p class="hint">Maç kartlarının sağ alt köşesinde "📺 kanal adı" olarak görünür. Yayıncı bilgisi hiçbir ücretsiz kaynakta olmadığı için bunu siz girersiniz. Önce ligin genel kanalını, gerekirse tek tek maçları değiştirin. Boş bırakılan yerde kanal gösterilmez.</p>
-    <h3 style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px">Lig için genel kanal</h3>
-    <div id="lch" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr));margin-bottom:22px"></div>
-    <h3 style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px">Tek tek maçlar (isteğe bağlı)</h3>
-    <div id="mch"></div>
-  </div>
-  <div class="card">
     <h2>Elle Maç Ekle</h2><p class="hint">Otomatik listede olmayan bir maçı (örneğin özel bir etkinlik) buradan ekleyebilirsiniz.</p>
     <div class="row">
       <div class="fld"><label class="f">Ev sahibi</label><input type="text" id="mh"></div>
@@ -648,22 +640,8 @@ async function testPharm() {
   } catch (e) { out.textContent = '❌ ' + e.message; }
 }
 
-/* kanallar + puan durumu */
-function renderChannels() {
-  $('showst').checked = db.showStandings !== false;
-  const lc = db.leagueChannels || {}, mc = db.channels || {};
-  const enabled = L.catalog.filter(l => L.enabled.includes(l.code));
-  $('lch').innerHTML = enabled.length ? enabled.map(l => `<div><label class="f">${esc(l.label)}</label>
-    <input type="text" maxlength="40" placeholder="örn. beIN Sports" value="${esc(lc[l.label] || '')}" data-league="${esc(l.label)}" onchange="saveLeagueCh(this)"></div>`).join('')
-    : '<div class="empty" style="grid-column:1/-1">Önce yukarıdan lig seçin.</div>';
-  const up = (pub.matches || []).filter(m => !m.final);
-  $('mch').innerHTML = up.length ? up.map(m => { const key = `${m.league}|${m.home}|${m.away}`; return `<div class="item">
-    <div class="body"><b>${esc(m.home)} – ${esc(m.away)}</b><span>${esc(m.league)} · ${esc(m.day)} ${esc(m.time)}</span></div>
-    <input type="text" maxlength="40" style="max-width:220px" placeholder="${esc(lc[m.league] || 'Kanal yok')}" value="${esc(mc[key] || '')}" data-key="${esc(key)}" onchange="saveMatchCh(this)"></div>`; }).join('')
-    : '<div class="empty">Şu an listelenecek maç yok.</div>';
-}
-const saveLeagueCh = el => api('PUT', '/channels/league', { league: el.dataset.league, channel: el.value }, 'Kanal kaydedildi');
-const saveMatchCh = el => api('PUT', '/channels/match', { key: el.dataset.key, channel: el.value }, 'Kanal kaydedildi');
+/* puan durumu */
+function renderChannels() { $('showst').checked = db.showStandings !== false; }
 
 /* QR kodlar */
 function qrKind() { const w = $('qkind').value === 'wifi'; $('qlink').style.display = w ? 'none' : 'flex'; $('qwifi').style.display = w ? 'flex' : 'none'; }
