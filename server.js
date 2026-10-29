@@ -18,6 +18,7 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 
 let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 } };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
+(db.birthdays || []).forEach(b => { if (typeof b.text !== 'string') b.text = '🎉 Doğum günün kutlu olsun ' + b.name + '! 🎂'; }); // eski kayıtlar: yazı artık elle düzenlenir
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
 // ---- Diske yazılan önbellek: yeniden başlatmada elde veri olur, her veri kendi süresine göre yenilenir ----
@@ -218,7 +219,7 @@ async function refreshMatches() {
     if (prev && (cur.h > prev.h || cur.a > prev.a)) {
       const g = m.lastGoal || {};
       broadcast({ type: 'goal', goal: {
-        id: m.id, league: m.league, home: m.home, away: m.away, hs: m.hs, as: m.as,
+        at: Date.now(), id: m.id, league: m.league, home: m.home, away: m.away, hs: m.hs, as: m.as,
         side: cur.h > prev.h ? 'home' : 'away', minute: g.min || m.clock, player: g.player || '', own: !!g.own, pen: !!g.pen,
       } });
     }
@@ -907,12 +908,15 @@ app.delete('/api/admin/matches/:id', (req, res) => {
 });
 app.post('/api/admin/birthdays', (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: 'isim gerekli' });
-  db.birthdays.push({ id: uid(), name: req.body.name, selected: true });
+  const text = String(req.body.text || '').trim().slice(0, 200);
+  if (!text) return res.status(400).json({ error: 'kutlama yazısı gerekli' });
+  db.birthdays.push({ id: uid(), name: String(req.body.name).slice(0, 60), text, selected: true });
   save(); res.json({ ok: true });
 });
 app.patch('/api/admin/birthdays/:id', (req, res) => {
   const b = db.birthdays.find(x => x.id === req.params.id);
-  if (b) b.selected = !!req.body.selected;
+  if (b && typeof req.body.selected === 'boolean') b.selected = req.body.selected;
+  if (b && typeof req.body.text === 'string' && req.body.text.trim()) b.text = req.body.text.trim().slice(0, 200);
   save(); res.json({ ok: true });
 });
 app.delete('/api/admin/birthdays/:id', (req, res) => {
@@ -941,13 +945,13 @@ setInterval(maybeRenderMap, 3 * 60 * 1000); // kontrol sıklığı; çizim en ç
 const BUILD = require('crypto').createHash('md5').update(fs.readFileSync(path.join(__dirname, 'public/index.html'))).digest('hex');
 wss.on('connection', ws => {
   setTimeout(maybeRenderMap, 1500);
-  ws.send(JSON.stringify({ type: 'version', build: BUILD }));
+  ws.send(JSON.stringify({ type: 'version', build: BUILD, now: Date.now() }));
   ws.send(JSON.stringify({ type: 'state', state: publicState() }));
 });
 
 function fireBirthday() {
-  const names = db.birthdays.filter(b => b.selected).map(b => b.name);
-  if (names.length) broadcast({ type: 'birthday', names, duration: db.duration });
+  const texts = db.birthdays.filter(b => b.selected && b.text).map(b => b.text);
+  if (texts.length) broadcast({ type: 'birthday', texts, duration: db.duration });
 }
 let lastFired = '';
 setInterval(() => {

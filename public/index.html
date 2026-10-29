@@ -732,9 +732,9 @@ function nextGoal() {
 }
 if (PIN === 'goal') setTimeout(() => showGoal({ league: 'La Liga', home: 'Barcelona', away: 'Real Madrid', hs: 1, as: 2, side: 'away', minute: "67'", player: 'Kylian Mbappé' }), 1500);
 let bt;
-function birthday(names, dur) {
+function birthday(texts, dur) {
   const b = document.getElementById('bday'), p = document.getElementById('btxt');
-  p.textContent = '🎉 Doğum günün kutlu olsun ' + names.join(', ') + '! 🎂';
+  p.textContent = texts.join('     •     ');
   p.style.setProperty('--d', Math.max(10, dur / 2) + 's');
   b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
   clearTimeout(bt); bt = setTimeout(() => b.classList.remove('on'), dur * 1000);
@@ -818,13 +818,13 @@ function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
-    if (m.type === 'version') { if (window.__build && window.__build !== m.build) location.reload(); window.__build = m.build; }
+    if (m.type === 'version') { if (m.now) window.__srvOff = m.now - Date.now(); if (window.__build && window.__build !== m.build) location.reload(); window.__build = m.build; }
     else if (m.type === 'state') setState(m.state);
     else if (m.type === 'rates') setRates(m.rates);
     else if (m.type === 'weather') setWeather(m.weather);
     else if (m.type === 'traffic') setTraffic(m.traffic);
-    else if (m.type === 'goal') showGoal(m.goal);
-    else if (m.type === 'birthday') birthday(m.names, m.duration);
+    else if (m.type === 'goal') { if (m.goal && m.goal.at && Date.now() + (window.__srvOff || 0) - m.goal.at > 60000) return; showGoal(m.goal); } // uygulama kapalıyken ya da arka plandayken atılan eski goller gösterilmez
+    else if (m.type === 'birthday') birthday(m.texts, m.duration);
   };
   ws.onclose = () => setTimeout(connect, 3000);
 }

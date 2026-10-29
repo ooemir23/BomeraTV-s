@@ -355,7 +355,10 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
     <div class="card">
       <h2>Kişiler</h2><p class="hint">Anahtarı açık olanlar kutlamaya dahil edilir.</p>
       <div class="row" style="margin-bottom:14px">
-        <div class="fld"><label class="f">Yeni kişi</label><input type="text" id="bn" placeholder="Ad Soyad"></div>
+        <div class="fld"><label class="f">Kişi (liste adı)</label><input type="text" id="bn" placeholder="Ad Soyad"></div>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <div class="fld"><label class="f">Ekranda kayacak yazı (tamamı sizin yazdığınız gibi görünür)</label><input type="text" id="bt" maxlength="200" placeholder="Örn: 🎉 Sevgili Ahmet, nice mutlu yıllara! 🎂"></div>
         <button class="btn" onclick="addB()">Ekle</button>
       </div>
       <div id="bday-list"></div>
@@ -677,14 +680,14 @@ async function addReview() {
 function renderBday() {
   const list = db.birthdays || [];
   $('bday-list').innerHTML = list.length ? list.map(b => `<div class="item"><label class="sw"><input type="checkbox" ${b.selected ? 'checked' : ''} onchange="api('PATCH','/birthdays/${b.id}',{selected:this.checked})"><i></i></label>
-    <div class="body"><b>${esc(b.name)}</b><span>${b.selected ? 'Kutlamaya dahil' : 'Kapalı'}</span></div>
+    <div class="body"><b>${esc(b.name)}</b><input type="text" maxlength="200" value="${esc(b.text || '')}" style="width:100%;margin-top:6px" onchange="api('PATCH','/birthdays/${b.id}',{text:this.value},'Yazı kaydedildi')"></div>
     <button class="btn danger sm" onclick="del('/birthdays/${b.id}','${esc(b.name).replace(/'/g, '')}')">Sil</button></div>`).join('') : '<div class="empty">Henüz kişi eklenmedi.</div>';
   $('times').innerHTML = times.length ? times.map((t, i) => `<span class="time">${esc(t)}<button onclick="rmTime(${i})">×</button></span>`).join('') : '<span style="color:var(--mute);font-size:13px">Saat eklenmedi — otomatik gösterim yapılmaz.</span>';
 }
 const addTime = () => { const v = $('newtime').value; if (v && !times.includes(v)) { times = [...times, v].sort(); timesDirty = true; $('newtime').value = ''; renderBday(); } };
 const rmTime = i => { times = times.filter((_, j) => j !== i); timesDirty = true; renderBday(); };
 const saveSchedule = async () => { if (await api('PUT', '/schedule', { times, duration: $('dur').value }, 'Zamanlama kaydedildi')) timesDirty = false; };
-const addB = async () => { const ok = await api('POST', '/birthdays', { name: $('bn').value.trim() }, 'Kişi eklendi'); if (ok) $('bn').value = ''; };
+const addB = async () => { const ok = await api('POST', '/birthdays', { name: $('bn').value.trim(), text: $('bt').value.trim() }, 'Kişi eklendi'); if (ok) { $('bn').value = ''; $('bt').value = ''; } };
 
 const saveSafe = () => api('PUT', '/options', { safeL: Number($('safeL').value), safeR: Number($('safeR').value), safeT: Number($('safeT').value), safeB: Number($('safeB').value) }, 'Kenar payları kaydedildi');
 const resetSafe = () => api('PUT', '/options', { safeL: 0, safeR: 0, safeT: 0, safeB: 0 }, 'Kenar payları sıfırlandı');
