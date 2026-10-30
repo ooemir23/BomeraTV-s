@@ -76,13 +76,13 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
 .thumb .no{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);border-radius:20px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
 .thumb .ty{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);border-radius:20px;padding:3px 10px;font-size:11px}
 .thumb{cursor:zoom-in}
-#pv{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px}
-#pv.on{display:flex}
-#pvf{position:relative;width:min(92vw,calc(82vh*16/9));aspect-ratio:16/9;border-radius:14px;padding:6px;background:linear-gradient(145deg,rgba(201,149,92,.7),rgba(144,101,56,.15) 40%,rgba(201,149,92,.5));box-shadow:0 20px 60px rgba(0,0,0,.7)}
-#pvb{position:absolute;inset:6px;border-radius:9px;overflow:hidden;background:#1b1d1d}
-#pvb .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(18px) saturate(1.1) brightness(.62);transform:scale(1.35)}
-#pvb .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-#pvc{color:var(--mute);font-size:13px;text-align:center}
+#mpv{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px}
+#mpv.on{display:flex}
+#mpvf{position:relative;width:min(92vw,calc(82vh*16/9));aspect-ratio:16/9;border-radius:14px;padding:6px;background:linear-gradient(145deg,rgba(201,149,92,.7),rgba(144,101,56,.15) 40%,rgba(201,149,92,.5));box-shadow:0 20px 60px rgba(0,0,0,.7)}
+#mpvb{position:absolute;inset:6px;border-radius:9px;overflow:hidden;background:#1b1d1d}
+#mpvb .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(18px) saturate(1.1) brightness(.62);transform:scale(1.35)}
+#mpvb .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#mpvc{color:var(--mute);font-size:13px;text-align:center}
 .tile .meta{padding:10px 12px}
 .tile .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px}
 .tile .act{display:flex;gap:6px}
@@ -513,11 +513,11 @@ async function loadStorage() {
 function showPv(i) {
   const v = (db.videos || [])[i]; if (!v) return;
   const u = '/uploads/' + v.file;
-  $('pvb').innerHTML = v.type === 'image' ? `<img class="bg" src="${u}"><img class="fg" src="${u}">` : `<video class="bg" src="${u}" muted autoplay loop playsinline></video><video class="fg" src="${u}" controls autoplay loop playsinline></video>`;
-  $('pvc').textContent = (v.name || '') + ' — TV\'de bu şekilde görünür (kapatmak için tıklayın)';
-  $('pv').classList.add('on');
+  $('mpvb').innerHTML = v.type === 'image' ? `<img class="bg" src="${u}"><img class="fg" src="${u}">` : `<video class="bg" src="${u}" muted autoplay loop playsinline></video><video class="fg" src="${u}" controls autoplay loop playsinline></video>`;
+  $('mpvc').textContent = (v.name || '') + ' — TV\'de bu şekilde görünür (kapatmak için tıklayın)';
+  $('mpv').classList.add('on');
 }
-function closePv() { $('pv').classList.remove('on'); $('pvb').innerHTML = ''; }
+function closePv() { $('mpv').classList.remove('on'); $('mpvb').innerHTML = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePv(); });
 function renderMedia() {
   const list = db.videos || [];
@@ -807,5 +807,5 @@ async function load() {
   loadBackups(); pollProcessing(); renderInfo(); renderQr(); renderMedia(); renderLeagues(); renderChannels(); renderManual(); renderReviews(); renderBday(); renderCamp(); initCollapse(); counts();
 }
 load().then(() => { const t = location.hash.slice(1); if (t && document.getElementById('sec-' + t)) show(t); else scalePv(); });
-</script><div id="pv" onclick="if(!event.target.closest('video'))closePv()"><div id="pvf"><div id="pvb"></div></div><div id="pvc"></div></div>
+</script><div id="mpv" onclick="if(!event.target.closest('video'))closePv()"><div id="mpvf"><div id="mpvb"></div></div><div id="mpvc"></div></div>
 </body></html>
