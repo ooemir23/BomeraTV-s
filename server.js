@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 }, movies: { enabled: true, key: '', trailers: true }, bigMatch: { enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, info: ['', 'MAÇ KEYFİ BOMERA\'DA!', 'NARGİLE & İÇECEK EŞLİĞİNDE'] }, bigPhotos: [] };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 }, movies: { enabled: true, key: '', trailers: true }, bigMatch: { enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, info: ['', '', ''] }, bigPhotos: [] };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 (db.birthdays || []).forEach(b => { if (typeof b.text !== 'string') b.text = '🎉 Doğum günün kutlu olsun ' + b.name + '! 🎂'; }); // eski kayıtlar: yazı artık elle düzenlenir
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -436,7 +436,9 @@ setInterval(refreshPharmacies, 30 * MIN); // ağa yalnızca nöbet günü deği�
 
 
 // ---- Büyük maç duyurusu: 4 büyüklerin derbileri ve Avrupa kupası maçları, başlamadan en çok N gün önce ekranda görsel olarak çıkar ----
-const bigCfg = () => ({ enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, info: ['', 'MAÇ KEYFİ BOMERA\'DA!', 'NARGİLE & İÇECEK EŞLİĞİNDE'], ...(db.bigMatch || {}) });
+const OLD_BIG_INFO = ['MAÇ KEYFİ BOMERA\'DA!', 'NARGİLE & İÇECEK EŞLİĞİNDE']; // kaldırılan eski varsayılan yazılar
+const bigCfgRaw = () => ({ enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, info: ['', '', ''], ...(db.bigMatch || {}) });
+const bigCfg = () => { const c = bigCfgRaw(); return { ...c, info: (c.info || []).map(t => OLD_BIG_INFO.includes(t) ? '' : t) }; };
 const norm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i').toLowerCase();
 const isBig4 = name => ['galatasaray', 'fenerbahce', 'besiktas', 'trabzonspor'].some(k => norm(name).includes(k));
 const BIG_LEAGUES = [['tur.1', 'Süper Lig'], ['uefa.champions', 'Şampiyonlar Ligi'], ['uefa.europa', 'Avrupa Ligi'], ['uefa.europa.conf', 'Konferans Ligi'], ['uefa.champions_qual', 'Şampiyonlar Ligi Eleme']];
