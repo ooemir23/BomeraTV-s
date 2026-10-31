@@ -454,9 +454,9 @@ function team(name, logo, lose) {
 function card(m) {
   const hasScore = m.hs != null;
   const hw = hasScore && +m.hs > +m.as, aw = hasScore && +m.as > +m.hs;
-  const corner = m.final ? '<span class="pill fin">MS</span>' : '';
+  const corner = '';
   const dayl = '';
-  const live = m.live ? `<div class="lv"><span class="pill live">CANLI ${esc(m.clock || '')}</span></div>` : '';
+  const live = m.live ? `<div class="lv"><span class="pill live">CANLI ${esc(m.clock || '')}</span></div>` : m.final && hasScore ? '<div class="lv"><span class="pill fin">MS</span></div>' : '';
   const mid = live + (hasScore ? `<div class="sc ${m.final ? 'fin' : ''}">${esc(m.hs)}<i>-</i>${esc(m.as)}</div>` : `<div class="tm">${esc(m.time)}</div>`);
   const chn = m.channel ? `<span class="chn">📺 ${esc(m.channel)}</span>` : '';
   return `<div class="m">${dayl}<span class="corner">${corner}</span><div class="tr3">${team(m.home, m.hl, m.final && aw)}<div class="mid">${mid}</div>${team(m.away, m.al, m.final && hw)}</div>${chn}</div>`.replace('class="m"', m.channel ? 'class="m hasch"' : 'class="m"');
