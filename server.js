@@ -354,8 +354,9 @@ async function refreshNews(force) {
 let books = cacheGet('books');
 let booksError = '', booksFailAt = 0;
 const coverMiss = new Set();
+const gbKey = () => String(process.env.GOOGLE_BOOKS_KEY || db.booksKey || '').trim();
 async function bookCover(b) { // CollectAPI kapak vermiyor: Google Books'tan başlık+yazara göre aranır
-  const q = (t) => `https://www.googleapis.com/books/v1/volumes?maxResults=3&printType=books&q=${encodeURIComponent(t)}`;
+  const q = (t) => `https://www.googleapis.com/books/v1/volumes?maxResults=3&printType=books${gbKey() ? '&key=' + encodeURIComponent(gbKey()) : ''}&q=${encodeURIComponent(t)}`;
   const clean = b.title.split(/\s[-–:]\s/)[0];
   for (const t of [`intitle:${clean}${b.author ? ' inauthor:' + b.author : ''}`, `${clean} ${b.author || ''}`]) {
     try {
@@ -1090,6 +1091,7 @@ app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
   if (typeof req.body.showOnThisDay === 'boolean') db.showOnThisDay = req.body.showOnThisDay;
   if (typeof req.body.showCelebrations === 'boolean') db.showCelebrations = req.body.showCelebrations;
+  if (typeof req.body.booksKey === 'string') { db.booksKey = req.body.booksKey.trim(); coverMiss.clear(); setTimeout(fillCovers, 500); }
   if (typeof req.body.showBooks === 'boolean') { db.showBooks = req.body.showBooks; if (db.showBooks) refreshBooks(); }
   if (['auto', 'lite', 'full'].includes(req.body.fxMode)) db.fxMode = req.body.fxMode;
   if (req.body.safeInset !== undefined && isFinite(Number(req.body.safeInset))) db.safeInset = Math.max(0, Math.min(12, Math.round(Number(req.body.safeInset) * 2) / 2));
