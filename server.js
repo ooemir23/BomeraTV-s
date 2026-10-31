@@ -362,7 +362,7 @@ async function refreshBooks(force) {
       const title = String(b.title || '').trim();
       if (!title || seen.has(title)) continue;
       seen.add(title);
-      items.push({ title, author: String(b.yazar || '').trim(), publisher: String(b['yayın'] || b.yayin || '').trim(), price: String(b.indirim || b.fiyat || '').trim(), oldPrice: b.fiyat && b.indirim && b.fiyat !== b.indirim ? String(b.fiyat).trim() : '' });
+      items.push({ image: String(b.image || b.resim || b.img || b.gorsel || b.cover || '').trim(), title, author: String(b.yazar || '').trim(), publisher: String(b['yayın'] || b.yayin || '').trim(), price: String(b.indirim || b.fiyat || '').trim(), oldPrice: b.fiyat && b.indirim && b.fiyat !== b.indirim ? String(b.fiyat).trim() : '' });
       if (items.length >= 8) break;
     }
     if (!items.length) throw new Error('kitap listesi boş');
