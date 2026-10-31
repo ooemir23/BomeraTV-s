@@ -530,7 +530,7 @@ function closePv() { $('mpv').classList.remove('on'); $('mpvb').innerHTML = ''; 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePv(); });
 function renderMedia() {
   const list = db.videos || [];
-  $('media-list').innerHTML = list.length ? '<div id="media">' + list.map((v, i) => `<div class="tile">
+  $('media-list').innerHTML = list.length ? '<div id="media">' + list.map((v, i) => `<div class="tile" draggable="true" data-id="${v.id}" title="Sırayı değiştirmek için sürükleyip bırakın">
     <div class="thumb" onclick="showPv(${i})">${v.type === 'image' ? `<img src="/uploads/${v.file}" loading="lazy">` : `<video src="/uploads/${v.file}#t=0.5" preload="metadata" muted></video>`}
       <span class="no">${i + 1}</span><span class="ty">${v.status === 'processing' ? (v.reopt ? '⚙ Küçültülüyor' : '⚙ Optimize ediliyor') : v.type === 'image' ? '🖼 Fotoğraf' : '🎬 Video'}</span></div>
     <div class="meta"><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div>${storageInfo && storageInfo.files[v.file] ? `<div class="nm" style="color:var(--mute);font-size:12px">Disk: ${fmtSize(storageInfo.files[v.file])}</div>` : ''}${v.status === 'processing' ? '<div class="nm" style="color:var(--accent2);font-size:12px">' + (v.reopt ? 'Oynamaya devam ediyor' : 'TV\'de henüz gösterilmiyor') + '</div>' : v.sizeBefore ? `<div class="nm" style="color:var(--mute);font-size:12px">${fmtMB(v.sizeBefore)} → ${fmtMB(v.sizeAfter || v.sizeBefore)}</div>` : v.optError ? `<div class="nm" style="color:var(--bad);font-size:12px" title="${esc(v.optError)}">Optimize edilemedi (orijinal kullanılıyor)</div>` : ''}
@@ -539,6 +539,23 @@ function renderMedia() {
       <button class="btn danger sm" onclick="del('/videos/${v.id}','${esc(v.name).replace(/'/g, '')}')">Sil</button></div></div></div>`).join('') + '</div>'
     : '<div class="empty">Henüz medya yok. Yukarıdan video veya fotoğraf yükleyin.</div>';
 }
+// Sürükle-bırak ile sıralama: bırakılan kartın yerine taşınır, yeni sıra sunucuya kaydedilir
+let dragId = null;
+(function () {
+  const root = $('media-list');
+  const tile = e => e.target.closest && e.target.closest('.tile[data-id]');
+  root.addEventListener('dragstart', e => { const t = tile(e); if (!t) return; dragId = t.dataset.id; t.style.opacity = '.4'; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragId); } catch (x) {} });
+  root.addEventListener('dragend', () => { dragId = null; root.querySelectorAll('.tile').forEach(t => { t.style.opacity = ''; t.style.outline = ''; }); });
+  root.addEventListener('dragover', e => { const t = tile(e); if (!dragId || !t) return; e.preventDefault(); root.querySelectorAll('.tile').forEach(x => x.style.outline = ''); if (t.dataset.id !== dragId) t.style.outline = '2px solid var(--accent2)'; });
+  root.addEventListener('drop', async e => {
+    const t = tile(e); if (!dragId || !t) return; e.preventDefault();
+    const ids = (db.videos || []).map(v => v.id), from = ids.indexOf(dragId), to = ids.indexOf(t.dataset.id);
+    dragId = null;
+    if (from < 0 || to < 0 || from === to) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    await api('POST', '/videos/reorder', { ids }, 'Sıra kaydedildi');
+  });
+})();
 const saveImgSec = () => api('PUT', '/settings', { imageSeconds: $('imgsec').value }, 'Fotoğraf süresi kaydedildi');
 function del(path, name) { if (confirm(`"${name}" silinsin mi?`)) api('DELETE', path, undefined, 'Silindi'); }
 

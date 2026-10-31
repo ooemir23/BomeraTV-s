@@ -1007,6 +1007,14 @@ app.delete('/api/admin/videos/:id', (req, res) => {
   db.videos = db.videos.filter(x => x.id !== req.params.id);
   changed(); res.json({ ok: true });
 });
+app.post('/api/admin/videos/reorder', (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(String) : [];
+  const byId = new Map(db.videos.map(v => [v.id, v]));
+  const ordered = ids.map(id => byId.get(id)).filter(Boolean);
+  const rest = db.videos.filter(v => !ids.includes(v.id)); // listede olmayanlar (yeni yüklenenler) sona
+  db.videos = [...new Set([...ordered, ...rest])];
+  changed(); res.json({ ok: true });
+});
 app.post('/api/admin/videos/:id/move', (req, res) => {
   const i = db.videos.findIndex(x => x.id === req.params.id);
   const j = i + (req.body.dir === 'up' ? -1 : 1);

@@ -1003,6 +1003,19 @@ $m('mupd').addEventListener('click', () => {
 $m('mrel').addEventListener('click', () => location.reload());
 $m('mcls').addEventListener('click', menuClose);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'ContextMenu') { e.preventDefault(); window.__menu(); } });
+// Kumanda sağ/sol okları: sonraki / önceki içerik (menü açıkken çalışmaz)
+let lastSkip = 0;
+document.addEventListener('keydown', e => {
+  if ((e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') || $m('menu').classList.contains('on') || !videos.length) return;
+  if (Date.now() - lastSkip < 350) return; // tuşa basılı tutunca atlamayı sınırla
+  lastSkip = Date.now(); e.preventDefault();
+  if (trailerOn) { endTrailer(); return; } // fragman: bitir ve döngüye dön
+  clearTimeout(timer);
+  idx += e.key === 'ArrowRight' ? 1 : -1;
+  if (idx < 0) idx = videos.length - 1;
+  prepared = { id: null };
+  play();
+});
 function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {
