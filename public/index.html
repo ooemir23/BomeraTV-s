@@ -31,7 +31,7 @@ html,body{height:100%;width:100%;background:var(--edge);color:var(--white);font-
 .qrc .code{width:var(--qrs,17vh);height:var(--qrs,17vh);background:#fff;border-radius:1.4vh;padding:.5vh;box-shadow:0 1vh 3vh rgba(0,0,0,.55);border:.25vh solid rgba(201,149,92,.85)}
 #qr-right .code svg,#qr-left .code svg{width:100%;height:100%;display:block}
 #qr-right .lbl,#qr-left .lbl{background:rgba(20,22,24,.84);backdrop-filter:blur(0.56vh);border:max(1px,.1vh) solid rgba(201,149,92,.5);color:var(--soft);font-size:1.25vh;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:.5vh 1vw;border-radius:2vh;max-width:calc(var(--qrs,17vh) + 6vh);text-align:center;line-height:1.3}
-.qrc .mq{width:var(--qrs,17vh);overflow:hidden;white-space:nowrap;background:rgba(20,22,24,.9);border:max(1px,.1vh) solid rgba(201,149,92,.6);border-radius:2vh;padding:.5vh 0;color:#ffe2bb;font-size:1.7vh;font-weight:700;letter-spacing:.06em}
+#qr-right .lbl.mq,#qr-left .lbl.mq{width:var(--qrs,17vh);max-width:none;box-sizing:border-box;overflow:hidden;white-space:nowrap;padding:.5vh 0;text-transform:none;letter-spacing:.06em}
 .qrc .mq span{display:inline-block;padding-left:100%;animation:qmq linear infinite}
 @keyframes qmq{to{transform:translateX(-100%)}}
 #bgw{position:absolute;inset:.6vh;border-radius:1.39vh;overflow:hidden;background:#1b1d1d}
@@ -644,7 +644,7 @@ const qrSides = { left: { list: [], idx: 0, timer: null }, right: { list: [], id
 let qrSig = '';
 function showQr(side) {
   const st = qrSides[side], el = document.getElementById('qr-' + side), q = st.list[st.idx % st.list.length];
-  el.innerHTML = `<div class="code">${q.svg}</div><div class="lbl">${esc(q.label)}</div>` + (q.marquee ? `<div class="mq"><span style="animation-duration:${Math.max(8, q.marquee.length * 0.45)}s">${esc(q.marquee)}</span></div>` : '');
+  el.innerHTML = `<div class="code">${q.svg}</div>` + (q.marquee ? `<div class="lbl mq"><span style="animation-duration:${Math.max(8, q.marquee.length * 0.45)}s">${esc(q.marquee)}</span></div>` : `<div class="lbl">${esc(q.label)}</div>`);
 }
 function setQr(list, show) {
   const sig = JSON.stringify([list, show]);
