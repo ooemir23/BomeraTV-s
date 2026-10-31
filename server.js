@@ -394,15 +394,21 @@ async function fetchMovies(key) {
   const j = await tmdb(`/discover/movie?region=TR&with_release_type=2|3&release_date.gte=${from}&release_date.lte=${to}&language=tr-TR&sort_by=popularity.desc&include_adult=false`, key);
   const items = [];
   for (const m of (j.results || []).slice(0, 8)) {
-    let trailer = '';
+    let trailer = '', alts = [];
     try {
+      const cand = [];
       for (const lang of ['tr-TR', 'en-US']) {
         const v = await tmdb(`/movie/${m.id}/videos?language=${lang}`, key);
-        const t = (v.results || []).find(x => x.site === 'YouTube' && x.type === 'Trailer') || (v.results || []).find(x => x.site === 'YouTube' && x.type === 'Teaser');
-        if (t) { trailer = t.key; break; }
+        for (const t of (v.results || []).filter(x => x.site === 'YouTube' && (x.type === 'Trailer' || x.type === 'Teaser')).sort((x, y) => (y.type === 'Trailer') - (x.type === 'Trailer') || (y.official === true) - (x.official === true)))
+          if (!cand.includes(t.key)) cand.push(t.key);
       }
+      for (const k of cand.slice(0, 6)) { // gömülmesine izin vermeyen videolar (oEmbed 401/403) atlanır
+        try { const o = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent('https://www.youtube.com/watch?v=' + k)}`); if (!o.ok) continue; } catch (e) { /* ağ hatası: yine de dene */ }
+        alts.push(k); if (alts.length >= 3) break;
+      }
+      trailer = alts[0] || '';
     } catch (e) { /* fragmansız kalır */ }
-    items.push({ id: m.id, title: m.title, original: m.original_title !== m.title ? m.original_title : '', date: m.release_date || '', rating: m.vote_average ? Math.round(m.vote_average * 10) / 10 : 0, poster: m.poster_path ? 'https://image.tmdb.org/t/p/w185' + m.poster_path : '', trailer });
+    items.push({ id: m.id, title: m.title, original: m.original_title !== m.title ? m.original_title : '', date: m.release_date || '', rating: m.vote_average ? Math.round(m.vote_average * 10) / 10 : 0, poster: m.poster_path ? 'https://image.tmdb.org/t/p/w185' + m.poster_path : '', trailer, alts });
   }
   if (!items.length) throw new Error('bu hafta için vizyon listesi boş');
   return { from, to, items };

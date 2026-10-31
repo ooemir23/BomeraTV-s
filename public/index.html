@@ -307,22 +307,36 @@ const bgc = document.getElementById('bgc'), bctx = bgc.getContext('2d');
 // Fragmanlar: her 4 içerikte bir (en az 8 dk arayla) yan yana vizyondaki filmlerin fragmanı sessiz oynar
 let trailerList = [], trailerIdx = 0, trailerPlays = 0, trailerAt = 0, trailerOn = false, trailerTimer;
 const trailerEl = document.getElementById('trailer');
+let trailerTry = 0, trailerCur = null;
 function endTrailer() {
   if (!trailerOn) return;
   trailerOn = false; clearTimeout(trailerTimer); trailerEl.classList.remove('on'); trailerEl.innerHTML = '';
   trailerAt = Date.now(); trailerPlays = 0;
   idx++; play();
 }
+function trailerError() { // video bu ülkede/gömülü oynatılamıyor: aynı filmin yedek fragmanını dene, yoksa sıradaki filme geç, hepsi başarısızsa döngüye dön
+  const alts = (trailerCur && trailerCur.alts) || [];
+  if (trailerCur && ++trailerTry < alts.length) return showTrailer(trailerCur, alts[trailerTry]);
+  if (++trailerFails < trailerList.length) return playTrailer(true);
+  endTrailer();
+}
+let trailerFails = 0;
 addEventListener('message', e => {
   if (!trailerOn || !/youtube\.com$/.test(new URL(e.origin).hostname)) return;
-  try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.event === 'onStateChange' && d.info === 0) endTrailer(); if (d.event === 'onError') endTrailer(); } catch (x) {}
+  try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.event === 'onStateChange' && d.info === 0) endTrailer(); else if (d.event === 'onError') trailerError(); } catch (x) {}
 });
-function playTrailer() {
-  const m = trailerList[trailerIdx++ % trailerList.length];
-  trailerOn = true; clearTimeout(timer); els.forEach(v => v.pause());
-  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(m.trailer)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&enablejsapi=1"></iframe><div class="tt"><small>BU HAFTA VİZYONDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
+function showTrailer(m, key) {
+  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&enablejsapi=1" onload="try{this.contentWindow.postMessage(JSON.stringify({event:'listening',id:1}),'*')}catch(e){}"></iframe><div class="tt"><small>BU HAFTA VİZYONDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
   trailerEl.classList.add('on');
-  trailerTimer = setTimeout(endTrailer, 3 * 60 * 1000); // oynatılamazsa ya da bitiş haberi gelmezse en çok 3 dk
+  clearTimeout(trailerTimer);
+  trailerTimer = setTimeout(endTrailer, 3 * 60 * 1000); // bitiş haberi gelmezse en çok 3 dk
+}
+function playTrailer(retry) {
+  const m = trailerList[trailerIdx++ % trailerList.length];
+  if (!retry) trailerFails = 0;
+  trailerOn = true; clearTimeout(timer); els.forEach(v => v.pause());
+  trailerCur = m; trailerTry = 0;
+  showTrailer(m, (m.alts && m.alts[0]) || m.trailer);
 }
 function next() {
   clearTimeout(timer);
