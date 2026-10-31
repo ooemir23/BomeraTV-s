@@ -384,7 +384,18 @@ function advance() {
   if (++trailerPlays >= 4 && trailerList.length && navigator.onLine !== false && Date.now() - trailerAt > 8 * 60 * 1000) { playTrailer(); return; }
   idx++; play();
 }
-function showEl(el) { els.forEach(e => { e.style.opacity = e === el ? '1' : '0'; e.style.zIndex = e === el ? '2' : '1'; }); }
+// çapraz geçiş: yeni katman eskisinin üstünde belirir, eskisi tamamen kapanınca gizlenir (arada boşluk/ani değişim olmaz)
+let fadeTok = 0;
+function cleanupLayers(keep) {
+  const t = fadeTok;
+  setTimeout(() => {
+    if (t !== fadeTok) return;
+    const hide = e => { e.style.transition = 'none'; e.style.opacity = '0'; void e.offsetWidth; e.style.transition = ''; };
+    els.forEach(e => { if (e !== keep) { hide(e); e.style.zIndex = '1'; } });
+    if (keep !== img && img.style.display === 'block') { hide(img); img.style.display = 'none'; }
+  }, 1800);
+}
+function showEl(el) { img.style.zIndex = '1'; els.forEach(e => { if (e === el) { e.style.zIndex = '3'; e.style.opacity = '1'; } else e.style.zIndex = '2'; }); cleanupLayers(el); }
 // sıradaki videoyu boştaki öğeye önceden yükle: geçişte boşluk ve "play" simgesi çıkmaz
 function prepNext() {
   if (videos.length < 2) { prepared = { id: null }; return; }
@@ -399,20 +410,19 @@ function prepNext() {
   prepared = { id: n.id };
 }
 function play() {
-  clearTimeout(timer);
+  clearTimeout(timer); fadeTok++;
   if (!videos.length) return;
   idx %= videos.length;
   const it = videos[idx];
   current = it.id;
   if (it.type === 'image') {
-    els.forEach(e => { e.pause(); e.style.opacity = '0'; });
-    const showImg = () => { img.style.display = 'block'; img.src = it.url; const go = () => requestAnimationFrame(() => requestAnimationFrame(() => { if (current === it.id) img.style.opacity = '1'; })); if (img.decode) img.decode().then(go, go); else go(); };
-    if (img.style.display === 'block' && img.style.opacity === '1') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) showImg(); }, 800); } // fotoğraftan fotoğrafa: önce söner, sonra yenisi belirir
+    els.forEach(e => e.pause());
+    const showImg = () => { img.style.zIndex = '4'; img.style.display = 'block'; img.src = it.url; const go = () => requestAnimationFrame(() => requestAnimationFrame(() => { if (current === it.id) { img.style.opacity = '1'; cleanupLayers(img); } })); if (img.decode) img.decode().then(go, go); else go(); };
+    if (img.style.display === 'block' && img.style.opacity !== '0') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) showImg(); }, 800); } // fotoğraftan fotoğrafa: önce söner, sonra yenisi belirir
     else { img.style.opacity = '0'; showImg(); }
     timer = setTimeout(next, imageSeconds * 1000);
     setTimeout(prepNext, 500);
   } else {
-    if (img.style.display === 'block') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) img.style.display = 'none'; }, 1700); } // fotoğraf yumuşakça söner, video belirir
     if (window.__lite) bctx.clearRect(0, 0, bgc.width, bgc.height); // hafif modda videonun arkasına bulanık kopya çizilmez
     let el, ready = false;
     if (prepared.id === it.id && idleV().dataset.url === it.url) { ci = 1 - ci; el = curV(); ready = el.readyState >= 2; }
@@ -423,7 +433,7 @@ function play() {
     if (ready) reveal(); else el.addEventListener('playing', reveal, { once: true });
     const pr = el.play(); if (pr && pr.catch) pr.catch(() => {});
     prepared = { id: null };
-    setTimeout(prepNext, 1500);
+    setTimeout(prepNext, 2000);
   }
 }
 function sizeBg() { const f = document.getElementById('frame'); bgc.width = 64; bgc.height = Math.max(8, Math.round(64 * f.clientHeight / Math.max(1, f.clientWidth))); }
