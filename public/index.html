@@ -198,7 +198,8 @@ background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100
 #bday.on{display:flex}
 #bday p{white-space:nowrap;font-size:5.4vh;font-weight:600;color:var(--white);padding-left:100%;animation:slide var(--d,20s) linear infinite}
 @keyframes slide{to{transform:translateX(-100%)}}
-video{transition:opacity .2s linear}
+video{transition:opacity .8s ease}
+#img{opacity:0;transition:opacity .8s ease}
 html.lite #bgc{filter:none;transform:none}
 html.lite #tview{-webkit-mask-image:none;mask-image:none}
 html.lite #qr-right .lbl,html.lite #qr-left .lbl,html.lite #tchip,html.lite #tidx,html.lite #tlegend{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(20,22,24,.93)}
@@ -404,11 +405,13 @@ function play() {
   current = it.id;
   if (it.type === 'image') {
     els.forEach(e => { e.pause(); e.style.opacity = '0'; });
-    img.style.display = 'block'; img.src = it.url;
+    const showImg = () => { img.style.display = 'block'; img.src = it.url; const go = () => requestAnimationFrame(() => requestAnimationFrame(() => { if (current === it.id) img.style.opacity = '1'; })); if (img.decode) img.decode().then(go, go); else go(); };
+    if (img.style.display === 'block' && img.style.opacity === '1') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) showImg(); }, 450); } // fotoğraftan fotoğrafa: önce söner, sonra yenisi belirir
+    else { img.style.opacity = '0'; showImg(); }
     timer = setTimeout(next, imageSeconds * 1000);
     setTimeout(prepNext, 500);
   } else {
-    img.style.display = 'none';
+    if (img.style.display === 'block') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) img.style.display = 'none'; }, 850); } // fotoğraf yumuşakça söner, video belirir
     if (window.__lite) bctx.clearRect(0, 0, bgc.width, bgc.height); // hafif modda videonun arkasına bulanık kopya çizilmez
     let el, ready = false;
     if (prepared.id === it.id && idleV().dataset.url === it.url) { ci = 1 - ci; el = curV(); ready = el.readyState >= 2; }
