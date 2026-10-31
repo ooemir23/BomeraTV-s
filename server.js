@@ -720,7 +720,8 @@ const publicState = () => ({
   safeInset: Math.max(0, Math.min(12, Number(db.safeInset) || 0)),
   safe: ['L', 'R', 'T', 'B'].reduce((o, k) => { const v = db['safe' + k]; o[k] = Math.max(0, Math.min(20, Number(v !== undefined && v !== null ? v : db.safeInset) || 0)); return o; }, {}),
   safeGuide: !!db.safeGuide,
-  qrs: (db.qrs || []).map(({ id, label, svg, side }) => ({ id, label, svg, side: side === 'left' ? 'left' : 'right' })),
+  qrSize: Math.max(10, Math.min(30, Number(db.qrSize) || 17)),
+  qrs: (db.qrs || []).map(({ id, label, svg, side, kind, text }) => ({ id, label, svg, side: side === 'left' ? 'left' : 'right', marquee: kind === 'wifi' ? wifiMarquee(text) : '' })),
   standings: Object.fromEntries(enabledLeagues().filter(([code]) => standings.has(code) && !(db.hideTables || []).includes(code)).map(([code, label]) => [label, standings.get(code).map(r => ({ ...r, logo: localLogo(r.logo) }))])),
   rates,
   weather,
@@ -834,6 +835,12 @@ app.get('/api/admin/leagues', (_, res) => res.json({
   tables: CATALOG.filter(([code, , group]) => group !== 'Avrupa Kupaları' && !NO_TABLE.has(code)).map(([code]) => code),
   hideTables: db.hideTables || [],
 }));
+// Wi-Fi QR'ının altında kayan yazı: elle girilen metin, yoksa QR'daki şifre
+function wifiMarquee(text) {
+  if (db.wifiText) return db.wifiText;
+  const m = /P:((?:\\.|[^;])*);/.exec(String(text || ''));
+  return m && m[1] ? 'Wi-Fi şifresi: ' + m[1].replace(/\\(.)/g, '$1') : '';
+}
 function qrText(b) {
   if (b.kind === 'wifi') {
     if (!b.ssid) throw new Error('Ağ adı (SSID) gerekli');
@@ -1089,6 +1096,8 @@ app.put('/api/admin/options', (req, res) => {
   if (typeof req.body.showStandings === 'boolean') db.showStandings = req.body.showStandings;
   if (Array.isArray(req.body.hideTables)) db.hideTables = req.body.hideTables.filter(c => CATALOG.some(([k]) => k === c));
   if (typeof req.body.showQr === 'boolean') db.showQr = req.body.showQr;
+  if (req.body.qrSize != null) db.qrSize = Math.max(10, Math.min(30, Number(req.body.qrSize) || 17));
+  if (typeof req.body.wifiText === 'string') db.wifiText = req.body.wifiText.trim().slice(0, 120);
   if (typeof req.body.showOnThisDay === 'boolean') db.showOnThisDay = req.body.showOnThisDay;
   if (typeof req.body.showCelebrations === 'boolean') db.showCelebrations = req.body.showCelebrations;
   if (typeof req.body.booksKey === 'string') { db.booksKey = req.body.booksKey.trim(); coverMiss.clear(); setTimeout(fillCovers, 500); }

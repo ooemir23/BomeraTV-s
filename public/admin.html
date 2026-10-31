@@ -264,6 +264,11 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
   <div class="card">
     <div class="item" style="margin-bottom:18px"><label class="sw"><input type="checkbox" id="showqr" onchange="api('PUT','/options',{showQr:this.checked},this.checked?'QR köşesi açıldı':'QR köşesi kapatıldı')"><i></i></label>
       <div class="body"><b>QR köşesini ekranda göster</b></div></div>
+    <div class="row" style="margin-bottom:18px">
+      <div class="fld" style="max-width:280px"><label class="f">QR boyutu: <b id="qrsv">17</b></label><input type="range" id="qrsize" min="10" max="30" step="1" oninput="$('qrsv').textContent=this.value" onchange="api('PUT','/options',{qrSize:+this.value},'QR boyutu kaydedildi')"></div>
+      <div class="fld"><label class="f">Wi-Fi şifresi kayan yazısı (Wi-Fi QR'ının altında akar)</label><input type="text" id="wifitext" maxlength="120" placeholder="örn. Wi-Fi şifresi: bomera2024 — boş bırakırsanız QR'daki şifre yazılır"></div>
+      <div style="align-self:flex-end"><button class="btn" onclick="api('PUT','/options',{wifiText:$('wifitext').value},'Wi-Fi yazısı kaydedildi')">Kaydet</button></div>
+    </div>
     <h2>Yeni QR Kod</h2>
     <p class="hint">Müşteri telefonun kamerasını tutunca açılır. Örnekler: menü bağlantısı, Google'da değerlendirme sayfası, Instagram hesabınız, Wi-Fi bağlantısı. En fazla 6 kod.</p>
     <div class="row" style="margin-bottom:12px">
@@ -777,7 +782,7 @@ async function toggleTable(c) {
 /* QR kodlar */
 function qrKind() { const w = $('qkind').value === 'wifi'; $('qlink').style.display = w ? 'none' : 'flex'; $('qwifi').style.display = w ? 'flex' : 'none'; }
 function renderQr() {
-  $('showqr').checked = db.showQr !== false;
+  $('showqr').checked = db.showQr !== false; $('qrsize').value = db.qrSize || 17; $('qrsv').textContent = db.qrSize || 17; $('wifitext').value = db.wifiText || '';
   const list = db.qrs || [];
   $('qr-list').innerHTML = list.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px">' + list.map(q => `<div class="tile"><div style="background:#fff;padding:10px;display:flex;justify-content:center"><div style="width:130px;height:130px">${q.svg}</div></div>
     <div class="meta"><div class="nm" title="${esc(q.text)}"><b>${esc(q.label)}</b></div><div class="nm" style="color:var(--mute);font-size:12px">${q.kind === 'wifi' ? 'Wi-Fi' : esc(q.text)}</div>
