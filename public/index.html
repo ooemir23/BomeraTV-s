@@ -642,7 +642,7 @@ function setQr(list, show) {
   }
 }
 let tickKey = '';
-document.addEventListener('animationiteration', e => { if (e.target.id === 'ttrack' && liveLeagues.length > 1) { tickLg = (tickLg + 1) % liveLeagues.length; setTicker(matches); } });
+document.addEventListener('animationiteration', e => { if (e.target.id === 'ttrack' && segCount > 1) { if (segIsInfo) tickInfoPos += TICK_INFO_N; tickSeg = (tickSeg + 1) % segCount; setTicker(matches); } });
 // Gösterilecek maç yoksa alt bant: hava, piyasalar, haber, tarihte bugün, nöbetçi eczane ve puan durumu liderleri (dönüşümlü sıra)
 function infoItems() {
   const f = (x, d = 2) => x ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
@@ -665,17 +665,29 @@ function infoItems() {
   for (let i = 0; i < max; i++) for (const c of cats) if (c[i]) out.push(c[i]);
   return out;
 }
-let tickLg = 0, liveLeagues = [];
+let tickSeg = 0, tickInfoPos = 0, segCount = 1, segIsInfo = false, liveLeagues = [];
+const TICK_INFO_N = 6;
+// Canlı maç varken alt bant bölümlerle döner: lig1 → bilgiler → lig2 → bilgiler …; her bölüm şeritte bir kez kayar, bitince sıradakine geçilir
+function infoWindow(all) { const n = Math.min(TICK_INFO_N, all.length), s = tickInfoPos % all.length; return Array.from({ length: n }, (_, i) => all[(s + i) % all.length]); }
 function setTicker(list) {
   const live = list.filter(m => m.live), fin = list.filter(m => m.final);
-  liveLeagues = [...new Set(live.map(m => m.league))]; // canlı skorlar lig lig döner: her lig şeridi bir tur kayınca sıradaki lige geçilir
-  if (tickLg >= liveLeagues.length) tickLg = 0;
-  const curLg = liveLeagues[tickLg];
-  const shown = live.length ? (liveLeagues.length > 1 ? live.filter(m => m.league === curLg) : live) : fin.length ? fin : list.slice(0, 8);
-  let label = live.length ? (liveLeagues.length > 1 ? 'Canlı · ' + curLg : 'Canlı Skorlar') : fin.length ? 'Günün Sonuçları' : 'Sıradaki Maçlar';
-  const info = shown.length ? [] : infoItems();
-  window.__tickerInfo = !shown.length && info.length > 0;
-  if (window.__tickerInfo) label = 'Güncel Bilgiler';
+  liveLeagues = [...new Set(live.map(m => m.league))];
+  let shown, label, info = [], seg = false;
+  segIsInfo = false; segCount = 1;
+  if (live.length) {
+    const infoAll = infoItems(), segs = [];
+    liveLeagues.forEach(l => { segs.push(l); if (infoAll.length) segs.push(null); });
+    segCount = segs.length; if (tickSeg >= segCount) tickSeg = 0;
+    seg = true; const sg = segs[tickSeg];
+    if (sg === null) { segIsInfo = true; shown = []; info = infoWindow(infoAll); label = 'Güncel Bilgiler'; }
+    else { shown = live.filter(m => m.league === sg); label = liveLeagues.length > 1 || infoAll.length ? 'Canlı · ' + sg : 'Canlı Skorlar'; }
+  } else {
+    shown = fin.length ? fin : list.slice(0, 8);
+    label = fin.length ? 'Günün Sonuçları' : 'Sıradaki Maçlar';
+    info = shown.length ? [] : infoItems();
+    if (!shown.length && info.length) label = 'Güncel Bilgiler';
+  }
+  window.__tickerInfo = segIsInfo || (!live.length && !shown.length && info.length > 0);
   const items = window.__tickerInfo ? info.join('') : shown.map(m => {
     const mid = m.hs != null ? `<span class="sc">${esc(m.hs)} - ${esc(m.as)}</span>` : '<span class="ft">vs</span>';
     const tag = m.live ? `<span class="lv">● ${esc(m.clock || 'CANLI')}</span>` : m.final ? '<span class="ft">MS</span>' : `<span class="ft">${esc(m.time)}</span>`;
@@ -685,13 +697,16 @@ function setTicker(list) {
   window.__lastTick = label + '|' + items;
   document.getElementById('tl').textContent = label;
   const a = document.getElementById('ta'), b = document.getElementById('tb'), track = document.getElementById('ttrack');
-  // tek kopya ekrandan kısaysa çoğalt ki boşluk kalmasın
-  a.innerHTML = items; 
   const view = document.getElementById('tview').clientWidth;
-  let reps = Math.max(1, Math.ceil(view / Math.max(1, a.scrollWidth)));
-  a.innerHTML = items.repeat(reps); b.innerHTML = items.repeat(reps);
-  const secs = Math.max(20, a.scrollWidth / (innerWidth * 0.055));
-  const key = window.__tickerInfo ? 'info' + info.length : shown.map(m => m.id).join() + label;
+  a.style.paddingLeft = b.style.paddingLeft = seg ? view + 'px' : ''; // bölüm modunda içerik sağdan girer, tekrar etmez
+  a.innerHTML = items;
+  if (seg) b.innerHTML = items;
+  else { // tek kopya ekrandan kısaysa çoğalt ki boşluk kalmasın
+    let reps = Math.max(1, Math.ceil(view / Math.max(1, a.scrollWidth)));
+    a.innerHTML = items.repeat(reps); b.innerHTML = items.repeat(reps);
+  }
+  const secs = Math.max(seg ? 12 : 20, a.scrollWidth / (innerWidth * 0.055));
+  const key = seg ? tickSeg + '|' + tickInfoPos + '|' + label + shown.map(m => m.id).join() : window.__tickerInfo ? 'info' + info.length : shown.map(m => m.id).join() + label;
   if (key !== tickKey) { tickKey = key; track.style.animation = 'none'; void track.offsetWidth; track.style.animation = ''; }
   track.style.animationDuration = secs + 's';
 }
