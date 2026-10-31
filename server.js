@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 } };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 }, movies: { enabled: true, key: '', trailers: true } };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 (db.birthdays || []).forEach(b => { if (typeof b.text !== 'string') b.text = '🎉 Doğum günün kutlu olsun ' + b.name + '! 🎂'; }); // eski kayıtlar: yazı artık elle düzenlenir
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -374,6 +374,54 @@ async function refreshBooks(force) {
 setTimeout(refreshBooks, 9000);
 setInterval(refreshBooks, 30 * MIN);
 
+
+// ---- Bu hafta Türkiye'de vizyondaki filmler ve fragmanları (TMDB, ücretsiz anahtar admin panelinden girilir): günde bir kez ----
+const movieCfg = () => db.movies || {};
+let movies = cacheGet('movies');
+let moviesError = '', moviesFailAt = 0;
+const TMDB = 'https://api.themoviedb.org/3';
+async function tmdb(p, key) {
+  const r = await fetch(`${TMDB}${p}${p.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(key)}`, { headers: { accept: 'application/json' } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.status_message || ('HTTP ' + r.status));
+  return j;
+}
+async function fetchMovies(key) {
+  // Türkiye'de vizyon günü cuma: geçen cumadan gelecek perşembeye (bu hafta) çıkan filmler
+  const now = new Date(), dow = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' }).format(now);
+  const back = { Fri: 0, Sat: 1, Sun: 2, Mon: 3, Tue: 4, Wed: 5, Thu: 6 }[dow];
+  const from = ymd(new Date(now.getTime() - back * 24 * HOUR)), to = ymd(new Date(now.getTime() + (6 - back) * 24 * HOUR));
+  const j = await tmdb(`/discover/movie?region=TR&with_release_type=2|3&release_date.gte=${from}&release_date.lte=${to}&language=tr-TR&sort_by=popularity.desc&include_adult=false`, key);
+  const items = [];
+  for (const m of (j.results || []).slice(0, 8)) {
+    let trailer = '';
+    try {
+      for (const lang of ['tr-TR', 'en-US']) {
+        const v = await tmdb(`/movie/${m.id}/videos?language=${lang}`, key);
+        const t = (v.results || []).find(x => x.site === 'YouTube' && x.type === 'Trailer') || (v.results || []).find(x => x.site === 'YouTube' && x.type === 'Teaser');
+        if (t) { trailer = t.key; break; }
+      }
+    } catch (e) { /* fragmansız kalır */ }
+    items.push({ id: m.id, title: m.title, original: m.original_title !== m.title ? m.original_title : '', date: m.release_date || '', rating: m.vote_average ? Math.round(m.vote_average * 10) / 10 : 0, poster: m.poster_path ? 'https://image.tmdb.org/t/p/w185' + m.poster_path : '', trailer });
+  }
+  if (!items.length) throw new Error('bu hafta için vizyon listesi boş');
+  return { from, to, items };
+}
+async function refreshMovies(force) {
+  const cfg = movieCfg();
+  if (!cfg.key || cfg.enabled === false) return;
+  if (!force && movies && cacheAge('movies') < 12 * HOUR) return;
+  if (!force && Date.now() - moviesFailAt < 3 * HOUR) return;
+  try {
+    const r = await fetchMovies(cfg.key);
+    movies = { ...r, updated: new Date().toISOString() };
+    moviesError = ''; cachePut('movies', movies);
+    broadcast({ type: 'state', state: publicState() });
+  } catch (e) { moviesError = e.message; moviesFailAt = Date.now(); console.error('Filmler alınamadı:', e.message); }
+}
+setTimeout(refreshMovies, 11000);
+setInterval(refreshMovies, 30 * MIN);
+
 setTimeout(refreshNews, 6000);
 setInterval(refreshNews, 10 * MIN); // yalnızca süre dolunca ağa gider
 
@@ -567,6 +615,9 @@ const publicState = () => ({
   onThisDay: onThisDay && onThisDay.date === ymd(new Date()) ? onThisDay : null,
   showNews: newsCfg().enabled !== false,
   showBooks: db.showBooks !== false,
+  showMovies: movieCfg().enabled !== false,
+  showTrailers: movieCfg().trailers !== false,
+  movies: movies && movies.items && Date.now() - Date.parse(movies.updated) < 4 * 24 * HOUR ? { items: movies.items } : null,
   celebration: activeCelebration(),
   app: appVersion(),
   campaigns: publicCampaigns(),
@@ -744,6 +795,25 @@ app.post('/api/admin/pharmacy/test', async (req, res) => {
   if (!cfg.districts.length) return res.status(400).json({ error: 'En az bir ilçe girin' });
   try { const items = await fetchPharmacies(cfg); res.json({ ok: true, count: items.length, sample: items.slice(0, 3) }); }
   catch (e) { res.status(502).json({ error: e.message }); }
+});
+app.put('/api/admin/movies', (req, res) => {
+  const b = req.body || {}, cur = movieCfg();
+  db.movies = {
+    enabled: typeof b.enabled === 'boolean' ? b.enabled : cur.enabled !== false,
+    trailers: typeof b.trailers === 'boolean' ? b.trailers : cur.trailers !== false,
+    key: typeof b.key === 'string' ? b.key.trim().slice(0, 120) : cur.key || '',
+  };
+  moviesFailAt = 0;
+  changed(); res.json({ ok: true });
+  refreshMovies(true);
+});
+app.post('/api/admin/movies/test', async (req, res) => {
+  try {
+    const key = String((req.body || {}).key || movieCfg().key || '').trim();
+    if (!key) return res.status(400).json({ error: 'API anahtarı girilmedi' });
+    const r = await fetchMovies(key);
+    res.json({ count: r.items.length, trailers: r.items.filter(i => i.trailer).length, sample: r.items.slice(0, 3).map(i => i.title) });
+  } catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.put('/api/admin/news', (req, res) => {
   const b = req.body || {}, cur = newsCfg();
