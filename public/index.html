@@ -456,6 +456,8 @@ els.forEach(e => {
   e.addEventListener('error', () => { if (e === curV()) { clearTimeout(timer); timer = setTimeout(next, 2000); } });
 });
 
+// Türkçe olmayan adlar (Liverpool) büyük harfe çevrilirken İ'ye dönmesin: lang=en verilir
+const lng = t => /[çğışöüÇĞİŞÖÜ]|spor|galatasaray|fenerbah|samsun|gaziantep|kayseri|alanya|antalya|hatay|konya|bodrum|kocaeli|trabzon|sivas|adana|\blig\b|ligi|kupa|süper|türk/i.test(String(t || '')) ? ' lang="tr"' : ' lang="en"';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let PER_PAGE = 5; const PAGE_MS = 9000, TRAFFIC_MS = 14000;
 const TRAFFIC_URL = 'https://yandex.com.tr/map-widget/v1/?ll=28.95%2C41.04&z=10&l=map%2Ctrf&lang=tr_TR';
@@ -576,6 +578,7 @@ function render() {
   tr.classList.toggle('off', !isTraffic);
   list.style.display = isTraffic ? 'none' : 'flex';
   document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'movies' ? `Sinemalarda<em>BU HAFTA${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'books' ? `Yeni Çıkan Kitaplar<em>${pg.parts > 1 ? `${pg.part}/${pg.parts}` : 'D&R'}</em>` : pg.type === 'news' ? `Gündem<em>TÜRKİYE${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
+  document.getElementById('mtitle').lang = /lang="tr"/.test(lng(pg.league)) || !pg.league ? 'tr' : 'en';
   document.getElementById('mtitle').classList.toggle('long', document.getElementById('mtitle').textContent.length > 20);
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
@@ -705,7 +708,7 @@ function setTicker(list) {
   const items = window.__tickerInfo ? info.join('') : shown.map(m => {
     const mid = m.hs != null ? `<span class="sc">${esc(m.hs)} - ${esc(m.as)}</span>` : '<span class="ft">vs</span>';
     const tag = m.live ? `<span class="lv">● ${esc(m.clock || 'CANLI')}</span>` : m.final ? '<span class="ft">MS</span>' : `<span class="ft">${esc(m.time)}</span>`;
-    return `<span class="ti"><span class="lg">${esc(m.league)}</span><span>${esc(m.home)}</span>${mid}<span>${esc(m.away)}</span>${tag}</span>`;
+    return `<span class="ti"><span class="lg"${lng(m.league)}>${esc(m.league)}</span><span>${esc(m.home)}</span>${mid}<span>${esc(m.away)}</span>${tag}</span>`;
   }).join('') || '<span class="ti"><span class="ft">Şu an gösterilecek maç yok</span></span>';
   if (window.__lastTick === label + '|' + items) return; // değişiklik yok: yeniden çizme
   window.__lastTick = label + '|' + items;
@@ -899,7 +902,7 @@ function nextGoal() {
   const el = document.getElementById('goal');
   const tag = g.own ? 'Kendi kalesine' : g.pen ? 'Penaltı' : '';
   const sc = g.side;
-  el.innerHTML = `<div class="ball">⚽</div><h3>GOL!</h3><div class="lg">${esc(g.league)}</div>
+  el.innerHTML = `<div class="ball">⚽</div><h3>GOL!</h3><div class="lg"${lng(g.league)}>${esc(g.league)}</div>
     <div class="teams"><div class="tr ${sc === 'home' ? 'sc' : ''}"><span>${esc(g.home)}</span><b>${esc(g.hs)}</b></div>
     <div class="tr ${sc === 'away' ? 'sc' : ''}"><span>${esc(g.away)}</span><b>${esc(g.as)}</b></div></div>
     <div class="who">${esc(g.player || 'Gol!')}<small>${esc(g.minute || '')}${tag ? ' · ' + tag : ''}</small></div>`;
@@ -1035,7 +1038,7 @@ function bigShow(m, cfg) {
   const dayTxt = days <= 0 ? 'BUGÜN' : days === 1 ? 'YARIN' : dayName;
   el.innerHTML = '<div class="bl"></div><div class="br"></div><div class="bsh"></div>' + side(m.hl, m.hp, true) + side(m.al, m.ap, false)
     + `<div class="bc"><div style="text-align:center"><img class="blogo" src="/logo.png" alt=""><div class="bt1" style="margin-top:1.4vh">${m.derby ? 'BÜYÜK DERBİ' : 'AVRUPA GECESİ'}</div>${sub}</div>`
-    + `<div class="btm"><div class="bnm"><b${m.home.length > 13 ? ' class="sm"' : ''}>${esc(m.home)}</b><i>VS</i><b${m.away.length > 13 ? ' class="sm"' : ''}>${esc(m.away)}</b></div>`
+    + `<div class="btm"><div class="bnm"><b${lng(m.home)}${m.home.length > 13 ? ' class="sm"' : ''}>${esc(m.home)}</b><i>VS</i><b${lng(m.away)}${m.away.length > 13 ? ' class="sm"' : ''}>${esc(m.away)}</b></div>`
     + `<div class="bclk"><svg viewBox="0 0 24 24" fill="none" stroke="#f4c04f" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 6.5V12l3.5 2"/></svg>${esc(tm)}</div>`
     + `<div class="bday">${esc(dayTxt)}</div>`
     + (cfg.note ? `<div class="bnote">${esc(cfg.note)}</div>` : '')
