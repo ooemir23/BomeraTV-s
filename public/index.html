@@ -642,6 +642,7 @@ function setQr(list, show) {
   }
 }
 let tickKey = '';
+document.addEventListener('animationiteration', e => { if (e.target.id === 'ttrack' && liveLeagues.length > 1) { tickLg = (tickLg + 1) % liveLeagues.length; setTicker(matches); } });
 // Gösterilecek maç yoksa alt bant: hava, piyasalar, haber, tarihte bugün, nöbetçi eczane ve puan durumu liderleri (dönüşümlü sıra)
 function infoItems() {
   const f = (x, d = 2) => x ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
@@ -664,10 +665,14 @@ function infoItems() {
   for (let i = 0; i < max; i++) for (const c of cats) if (c[i]) out.push(c[i]);
   return out;
 }
+let tickLg = 0, liveLeagues = [];
 function setTicker(list) {
   const live = list.filter(m => m.live), fin = list.filter(m => m.final);
-  const shown = live.length || fin.length ? [...live, ...fin] : list.slice(0, 8);
-  let label = live.length ? 'Canlı Skorlar' : fin.length ? 'Günün Sonuçları' : 'Sıradaki Maçlar';
+  liveLeagues = [...new Set(live.map(m => m.league))]; // canlı skorlar lig lig döner: her lig şeridi bir tur kayınca sıradaki lige geçilir
+  if (tickLg >= liveLeagues.length) tickLg = 0;
+  const curLg = liveLeagues[tickLg];
+  const shown = live.length ? (liveLeagues.length > 1 ? live.filter(m => m.league === curLg) : live) : fin.length ? fin : list.slice(0, 8);
+  let label = live.length ? (liveLeagues.length > 1 ? 'Canlı · ' + curLg : 'Canlı Skorlar') : fin.length ? 'Günün Sonuçları' : 'Sıradaki Maçlar';
   const info = shown.length ? [] : infoItems();
   window.__tickerInfo = !shown.length && info.length > 0;
   if (window.__tickerInfo) label = 'Güncel Bilgiler';
