@@ -350,6 +350,32 @@ async function refreshNews(force) {
 // ---- Yeni çıkan kitaplar (CollectAPI /book/newBook): günde bir kez ----
 let books = cacheGet('books');
 let booksError = '', booksFailAt = 0;
+const coverMiss = new Set();
+async function bookCover(b) { // CollectAPI kapak vermiyor: Google Books'tan başlık+yazara göre aranır
+  const q = (t) => `https://www.googleapis.com/books/v1/volumes?maxResults=3&printType=books&q=${encodeURIComponent(t)}`;
+  const clean = b.title.split(/\s[-–:]\s/)[0];
+  for (const t of [`intitle:${clean}${b.author ? ' inauthor:' + b.author : ''}`, `${clean} ${b.author || ''}`]) {
+    try {
+      const r = await fetch(q(t), { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return null; // kota/hata: kalıcı 'yok' sayılmaz, sonra tekrar denenir
+      const j = await r.json();
+      for (const v of j.items || []) { const l = v.volumeInfo && v.volumeInfo.imageLinks; const u = l && (l.thumbnail || l.smallThumbnail); if (u) return u.replace(/^http:/, 'https:').replace('&edge=curl', ''); }
+    } catch (e) {}
+  }
+  return '';
+}
+async function fillCovers() {
+  if (!books) return;
+  let n = 0;
+  for (const b of books.items) {
+    if (b.image || coverMiss.has(b.title)) continue;
+    const u = await bookCover(b);
+    if (u === null) break;
+    b.image = u;
+    if (u) n++; else coverMiss.add(b.title);
+  }
+  if (n) { cachePut('books', books); broadcast({ type: 'state', state: publicState() }); }
+}
 async function refreshBooks(force) {
   const key = newsKey();
   if (!key || db.showBooks === false) return;
@@ -367,11 +393,13 @@ async function refreshBooks(force) {
     }
     if (!items.length) throw new Error('kitap listesi boş');
     books = { items, updated: new Date().toISOString() };
-    booksError = ''; cachePut('books', books);
+    booksError = ''; cachePut('books', books); fillCovers();
     broadcast({ type: 'state', state: publicState() });
   } catch (e) { booksError = e.message; booksFailAt = Date.now(); console.error('Kitaplar alınamadı:', e.message); }
 }
 setTimeout(refreshBooks, 9000);
+setTimeout(fillCovers, 12000);
+setInterval(fillCovers, 30 * MIN);
 setInterval(refreshBooks, 30 * MIN);
 
 
