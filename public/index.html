@@ -82,7 +82,7 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 .mv .mm{font-size:1.3vh;color:var(--accent2);font-weight:600;margin-top:.4vh}
 #trailer{position:absolute;inset:.6vh;z-index:5;display:none;background:#000;border-radius:1.39vh;overflow:hidden}
 #trailer.on{display:block}
-#trailer iframe{width:100%;height:100%;border:0}
+#trailer iframe{position:absolute;width:116%;height:116%;left:-8%;top:-8%;border:0;pointer-events:none}
 #trailer .tt{position:absolute;left:2vh;top:2vh;max-width:70%;padding:1.4vh 2vw 1.6vh 1.6vw;background:rgba(10,8,6,.88);border-left:.6vh solid var(--accent2);border-radius:1vh;color:#fff;font-size:4.4vh;font-weight:800;line-height:1.15;text-shadow:0 .2vh .6vh #000;box-shadow:0 1vh 3vh rgba(0,0,0,.6);pointer-events:none}
 #trailer .tt small{display:block;font-size:2.1vh;font-weight:800;color:var(--accent2);letter-spacing:.14em;margin-bottom:.8vh}
 .bk{padding:1.2vh .9vw}
@@ -344,10 +344,10 @@ function trailerError() { // video bu ülkede/gömülü oynatılamıyor: aynı f
   if (++trailerFails < trailerList.length) return playTrailer(true);
   endTrailer();
 }
-let trailerFails = 0;
+let trailerFails = 0, trailerSeen = false;
 addEventListener('message', e => {
   if (!trailerOn || !/youtube\.com$/.test(new URL(e.origin).hostname)) return;
-  try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.event === 'onStateChange' && d.info === 0) endTrailer(); else if (d.event === 'onError') trailerError(); } catch (x) {}
+  try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.event === 'onStateChange' && (d.info === 0 || d.info === 5 && trailerSeen)) endTrailer(); else if (d.event === 'infoDelivery' && d.info && d.info.duration > 5 && d.info.currentTime > 0) { trailerSeen = true; if (d.info.currentTime >= d.info.duration - 1.2) endTrailer(); } else if (d.event === 'onError') trailerError(); } catch (x) {}
 });
 // YouTube altyazıları (otomatik İngilizce dahil) kapatılır: modül geç yüklenebildiği için birkaç kez denenir
 function ytHandshake(f) {
@@ -360,8 +360,8 @@ function ytHandshake(f) {
   }, t));
 }
 function showTrailer(m, key) {
-  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&cc_load_policy=0&hl=tr&cc_lang_pref=tr&iv_load_policy=3&enablejsapi=1" onload="ytHandshake(this)"></iframe><div class="tt"><small>BU HAFTA SİNEMALARDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
-  trailerEl.classList.add('on');
+  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&cc_load_policy=0&hl=tr&cc_lang_pref=tr&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1" onload="ytHandshake(this)"></iframe><div class="tt"><small>BU HAFTA SİNEMALARDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
+  trailerEl.classList.add('on'); trailerSeen = false;
   clearTimeout(trailerTimer);
   trailerTimer = setTimeout(endTrailer, 3 * 60 * 1000); // bitiş haberi gelmezse en çok 3 dk
 }
@@ -374,6 +374,10 @@ function playTrailer(retry) {
 }
 function next() {
   clearTimeout(timer);
+  if (big.due && big.list.length && !big.showing) { big.due = false; els.forEach(v => v.pause()); big.queue = big.list.slice(1); big.after = advance; bigShow(big.list[0]); return; } // büyük maç duyurusu: o anki medya bitince
+  advance();
+}
+function advance() {
   if (++trailerPlays >= 4 && trailerList.length && navigator.onLine !== false && Date.now() - trailerAt > 8 * 60 * 1000) { playTrailer(); return; }
   idx++; play();
 }
@@ -975,7 +979,7 @@ function campShow(c) {
 }
 function setCampaigns(list) { camp.list = list || []; }
 // ---- büyük maç duyurusu: derbi / Avrupa kupası maçından en çok birkaç gün önce, rezervasyon notuyla ----
-const big = { list: [], cfg: { note: '', everyMin: 6, durSec: 15 }, last: 0, queue: [], showing: false, started: Date.now() };
+const big = { list: [], cfg: { note: '', everyMin: 6, durSec: 15 }, last: 0, queue: [], showing: false, due: false, after: null, started: Date.now() };
 function setBig(list, cfg) { big.list = list || []; big.cfg = cfg || big.cfg; }
 function bigShow(m, cfg) {
   if (big.showing || !m) return;
@@ -1002,12 +1006,14 @@ function bigShow(m, cfg) {
     + (cfg.note ? `<div class="bnote">${esc(cfg.note)}</div>` : '')
     + (info.length ? `<div class="bft">${info.map((t, i) => `<span>${icons[i % 3]} ${esc(t)}</span>`).join('')}</div>` : '<div style="height:1.4vh"></div>') + '</div></div>';
   setTimeout(() => el.classList.add('on'), 60);
-  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; const nx = big.queue.shift(); if (nx) bigShow(nx); }, 900); }, (cfg.durSec || 15) * 1000);
+  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; const nx = big.queue.shift(); if (nx) bigShow(nx); else if (big.after) { const f = big.after; big.after = null; f(); } }, 900); }, (cfg.durSec || 15) * 1000);
 }
 setInterval(() => {
-  if (big.showing || camp.showing || trailerOn || !big.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
+  if (big.showing || big.due || camp.showing || trailerOn || !big.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
   const gap = (big.cfg.everyMin || 6) * 60000;
-  if (Date.now() - (big.last || big.started - gap + 60000) >= gap) { big.queue = big.list.slice(1); bigShow(big.list[0]); } // ilk gösterim açılıştan ~1 dk sonra; birden fazla maç varsa hepsi peş peşe, sırayla
+  if (Date.now() - (big.last || big.started - gap + 60000) >= gap) { // medya bitince gösterilir; tek/boş listede döngü bitmeyeceği için hemen
+    if (videos.length > 1) big.due = true; else { big.queue = big.list.slice(1); bigShow(big.list[0]); }
+  } // ilk gösterim açılıştan ~1 dk sonra; birden fazla maç varsa hepsi peş peşe, sırayla
 }, 5000);
 setInterval(() => {
   if (camp.showing || !camp.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
