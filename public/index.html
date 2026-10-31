@@ -453,7 +453,7 @@ setInterval(() => {
   if (bgFor !== current && img.style.display === 'none' && c.style.opacity !== '0' && !c.paused && c.readyState >= 2 && c.currentTime > 0.4) { bgFor = current; drawBg(c, c.videoWidth, c.videoHeight); } // arka plan bulanıklığı hareketsiz: içerik başına bir kez çizilir
 }, 250);
 els.forEach(e => {
-  e.addEventListener('ended', () => { if (e === curV()) next(); });
+  e.addEventListener('ended', () => { if (e === curV()) { clearTimeout(timer); timer = setTimeout(next, 2000); } }); // video bitince son karede 2 sn bekle
   e.addEventListener('error', () => { if (e === curV()) { clearTimeout(timer); timer = setTimeout(next, 2000); } });
 });
 
