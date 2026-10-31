@@ -354,14 +354,23 @@ async function refreshNews(force) {
 let books = cacheGet('books');
 let booksError = '', booksFailAt = 0;
 const coverMiss = new Set();
+let coverErr = '', coverOk = 0;
 const gbKey = () => String(process.env.GOOGLE_BOOKS_KEY || db.booksKey || '').trim();
+async function olCover(b) { // yedek: Open Library (Türkçe kitaplarda zayıf); null = hata, '' = bulunamadı
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?limit=3&fields=cover_i&q=${encodeURIComponent(b.title.split(/\s[-–:]\s/)[0] + ' ' + (b.author || ''))}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const d = ((await r.json()).docs || []).find(x => x.cover_i);
+    return d ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null;
+  } catch (e) { return null; }
+}
 async function bookCover(b) { // CollectAPI kapak vermiyor: Google Books'tan başlık+yazara göre aranır
   const q = (t) => `https://www.googleapis.com/books/v1/volumes?maxResults=3&printType=books${gbKey() ? '&key=' + encodeURIComponent(gbKey()) : ''}&q=${encodeURIComponent(t)}`;
   const clean = b.title.split(/\s[-–:]\s/)[0];
   for (const t of [`intitle:${clean}${b.author ? ' inauthor:' + b.author : ''}`, `${clean} ${b.author || ''}`]) {
     try {
       const r = await fetch(q(t), { signal: AbortSignal.timeout(8000) });
-      if (!r.ok) return null; // kota/hata: kalıcı 'yok' sayılmaz, sonra tekrar denenir
+      if (!r.ok) { coverErr = 'Google Books ' + r.status + (gbKey() ? '' : ' (anahtarsız kota dolu olabilir)'); return (await olCover(b)) || null; } // kota/hata: Open Library denenir; yoksa kalıcı 'yok' sayılmaz
       const j = await r.json();
       for (const v of j.items || []) { const l = v.volumeInfo && v.volumeInfo.imageLinks; const u = l && (l.thumbnail || l.smallThumbnail); if (u) return u.replace(/^http:/, 'https:').replace('&edge=curl', ''); }
     } catch (e) {}
@@ -374,8 +383,8 @@ async function fillCovers() {
   for (const b of books.items) {
     if (b.image || coverMiss.has(b.title)) continue;
     const u = await bookCover(b);
-    if (u === null) break;
-    b.image = u;
+    if (u === null) continue; // hata: kalıcı 'yok' sayılmaz, 30 dk sonra yeniden denenir
+    b.image = u; if (u) { coverOk++; coverErr = ''; }
     if (u) n++; else coverMiss.add(b.title);
   }
   if (n) { cachePut('books', books); broadcast({ type: 'state', state: publicState() }); }
@@ -1003,7 +1012,7 @@ app.get('/api/admin/cache', (_, res) => {
     tarihteBugun: onThisDay ? onThisDay.date : null,
     harita: { dk: mapAt ? Math.round((Date.now() - mapAt) / 60000) : null, hata: mapErr },
     haber: news ? { adet: news.items.length, dk: age('news'), hata: newsError } : (newsError ? { hata: newsError } : null),
-    kitap: books ? { adet: books.items.length, dk: age('books'), hata: booksError } : (booksError ? { hata: booksError } : null),
+    kitap: books ? { adet: books.items.length, dk: age('books'), hata: booksError, kapak: books.items.filter(b => b.image).length + '/' + books.items.length, kapakHata: coverErr } : (booksError ? { hata: booksError } : null),
     kota: { eczane: `${quota.month === monthKey() ? quota.pharm : 0}/${QUOTA.pharm.limit}`, haber: `${quota.month === monthKey() ? quota.news : 0}/${QUOTA.news.limit}`, kitap: `${quota.month === monthKey() ? quota.books || 0 : 0}` },
     collectBugun: collectStats.day === ymd(new Date()) ? collectStats.n : 0,
     nobetci: pharmacies ? { duty: pharmacies.duty, adet: pharmacies.items.length, guncel: pharmacies.duty === dutyDay() } : null, nobetciHata: pharmError,
