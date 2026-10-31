@@ -263,6 +263,18 @@ html.lite #camp .cup .st{animation:none;opacity:.7}
 #camp .qb svg{width:100%;height:100%;display:block}
 #camp .ql{font-size:2.2vh;font-weight:700;letter-spacing:.06em;color:#fff;text-align:center;max-width:32vh}
 #camp .ql small{display:block;margin-top:.5vh;font-size:1.6vh;font-weight:500;color:#f3cf9e;letter-spacing:.1em}
+#big{position:absolute;inset:.6vh;z-index:7;border-radius:1.39vh;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4vh 3vw 0;background:radial-gradient(ellipse 80% 70% at 50% 35%,#4a2f18 0%,#2a1b0f 55%,#140d07 100%)}
+#big.on{opacity:1}
+#big .bk1{font-size:2.6vh;font-weight:800;letter-spacing:.3em;color:var(--accent2);text-align:center}
+#big .bt1{font-size:7.2vh;font-weight:900;line-height:1.05;color:#fff;text-align:center;text-shadow:0 .4vh 1.4vh #000a;margin-top:1vh}
+#big .bm1{display:flex;align-items:center;justify-content:center;gap:4vw;width:100%}
+#big .bte{flex:1;display:flex;flex-direction:column;align-items:center;gap:2vh;min-width:0}
+#big .bte img{height:24vh;width:24vh;object-fit:contain;filter:drop-shadow(0 .8vh 1.6vh #000a)}
+#big .bte b{font-size:4.2vh;font-weight:800;color:#fff;text-align:center;line-height:1.1}
+#big .bvs{font-size:4.4vh;font-weight:900;color:var(--accent2);letter-spacing:.1em}
+#big .bwh{text-align:center;font-size:3.6vh;font-weight:700;color:#f3cf9e}
+#big .bwh small{display:block;font-size:2.4vh;font-weight:600;color:#e5d6c3;margin-top:.6vh}
+#big .bnote{align-self:stretch;margin:0 -3vw;padding:2.2vh 3vw;background:linear-gradient(90deg,#906538,#c9955c,#906538);color:#1a110a;font-size:3.4vh;font-weight:800;text-align:center}
 #cphoto{position:absolute;inset:.6vh;z-index:6;border-radius:1.39vh;overflow:hidden;background:#0d0d0e;opacity:0;pointer-events:none;transition:opacity .9s}
 #cphoto.on{opacity:1}
 #cphoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:grayscale(1) contrast(1.05)}
@@ -694,6 +706,7 @@ function setState(s) {
   preloadLogos(s);
   checkUpdate(s.app);
   setCampaigns(s.campaigns);
+  setBig(s.bigMatches, s.bigCfg);
   trailerList = s.showTrailers !== false && s.movies ? s.movies.items.filter(m => m.trailer) : [];
   setCeleb(s.celebration);
   applySafe(s.safe || { L: s.safeInset, R: s.safeInset, T: s.safeInset, B: s.safeInset }, s.safeGuide);
@@ -949,6 +962,33 @@ function campShow(c) {
   setTimeout(() => { el.classList.remove('on'); setTimeout(() => { camp.showing = false; }, 900); }, (c.durSec || 15) * 1000);
 }
 function setCampaigns(list) { camp.list = list || []; }
+// ---- büyük maç duyurusu: derbi / Avrupa kupası maçından en çok birkaç gün önce, rezervasyon notuyla ----
+const big = { list: [], cfg: { note: '', everyMin: 6, durSec: 15 }, last: 0, i: 0, showing: false, started: Date.now() };
+function setBig(list, cfg) { big.list = list || []; big.cfg = cfg || big.cfg; }
+function bigShow(m, cfg) {
+  if (big.showing || !m) return;
+  big.showing = true; camp.showing = true; big.last = Date.now();
+  cfg = cfg || big.cfg;
+  const z = { timeZone: 'Europe/Istanbul' };
+  const d0 = new Date(m.ts), dk = x => new Intl.DateTimeFormat('en-CA', z).format(x);
+  const days = Math.round((Date.parse(dk(d0)) - Date.parse(dk(new Date()))) / 86400000);
+  const when = days <= 0 ? 'BUGÜN' : days === 1 ? 'YARIN' : days + ' GÜN SONRA';
+  const dayName = d0.toLocaleDateString('tr-TR', { ...z, day: 'numeric', month: 'long', weekday: 'long' }), tm = d0.toLocaleTimeString('tr-TR', { ...z, hour: '2-digit', minute: '2-digit' });
+  const team = (n, l) => `<div class="bte">${l ? `<img src="${esc(l)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : ''}<b>${esc(n)}</b></div>`;
+  let el = document.getElementById('big');
+  if (!el) { el = document.createElement('div'); el.id = 'big'; document.getElementById('frame').appendChild(el); }
+  el.innerHTML = `<div><div class="bk1">${esc((m.league || '').toLocaleUpperCase('tr-TR'))}</div><div class="bt1">${m.derby ? 'DERBİ HEYECANI' : 'AVRUPA GECESİ'}</div></div>`
+    + `<div class="bm1">${team(m.home, m.hl)}<div class="bvs">VS</div>${team(m.away, m.al)}</div>`
+    + `<div class="bwh">${esc(dayName)} · ${esc(tm)}<small>${when}</small></div>`
+    + (cfg.note ? `<div class="bnote">${esc(cfg.note)}</div>` : '<div></div>');
+  setTimeout(() => el.classList.add('on'), 60);
+  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; }, 900); }, (cfg.durSec || 15) * 1000);
+}
+setInterval(() => {
+  if (big.showing || camp.showing || trailerOn || !big.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
+  const gap = (big.cfg.everyMin || 6) * 60000;
+  if (Date.now() - (big.last || big.started - gap + 60000) >= gap) bigShow(big.list[big.i++ % big.list.length]); // ilk gösterim açılıştan ~1 dk sonra, maçlar sırayla
+}, 5000);
 setInterval(() => {
   if (camp.showing || !camp.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
   for (const c of camp.list) {
@@ -1027,6 +1067,7 @@ function connect() {
     else if (m.type === 'traffic') setTraffic(m.traffic);
     else if (m.type === 'goal') { if (m.goal && m.goal.at && Date.now() + (window.__srvOff || 0) - m.goal.at > 60000) return; showGoal(m.goal); } // uygulama kapalıyken ya da arka plandayken atılan eski goller gösterilmez
     else if (m.type === 'campaign') campShow(m.camp);
+    else if (m.type === 'bigmatch') bigShow(m.match, m.cfg);
     else if (m.type === 'birthday') birthday(m.texts, m.duration);
   };
   ws.onclose = () => setTimeout(connect, 3000);

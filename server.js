@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 }, movies: { enabled: true, key: '', trailers: true } };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 }, movies: { enabled: true, key: '', trailers: true }, bigMatch: { enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15 } };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 (db.birthdays || []).forEach(b => { if (typeof b.text !== 'string') b.text = '🎉 Doğum günün kutlu olsun ' + b.name + '! 🎂'; }); // eski kayıtlar: yazı artık elle düzenlenir
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -435,6 +435,47 @@ setTimeout(refreshPharmacies, 4000);
 setInterval(refreshPharmacies, 30 * MIN); // ağa yalnızca nöbet günü değişince ya da ayar değişince gidilir
 
 
+// ---- Büyük maç duyurusu: 4 büyüklerin derbileri ve Avrupa kupası maçları, başlamadan en çok N gün önce ekranda görsel olarak çıkar ----
+const bigCfg = () => ({ enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, ...(db.bigMatch || {}) });
+const norm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i').toLowerCase();
+const isBig4 = name => ['galatasaray', 'fenerbahce', 'besiktas', 'trabzonspor'].some(k => norm(name).includes(k));
+const BIG_LEAGUES = [['tur.1', 'Süper Lig'], ['uefa.champions', 'Şampiyonlar Ligi'], ['uefa.europa', 'Avrupa Ligi'], ['uefa.europa.conf', 'Konferans Ligi'], ['uefa.champions_qual', 'Şampiyonlar Ligi Eleme']];
+let bigMatches = cacheGet('bigmatches') || [];
+let bigError = '';
+async function refreshBigMatches() {
+  const out = [], now = Date.now(), days = Math.max(1, Math.min(7, Number(bigCfg().days) || 3));
+  const dates = Array.from({ length: days + 1 }, (_, i) => ymd(new Date(now + i * 24 * HOUR)).replace(/-/g, '')); // ESPN aralık sorgusunu desteklemiyor: gün gün
+  let ok = 0;
+  for (const [code, label] of BIG_LEAGUES) {
+    for (const dt of dates) try {
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${code}/scoreboard?dates=${dt}`);
+      const j = await r.json();
+      ok++;
+      for (const e of j.events || []) {
+        if (e.status.type.state !== 'pre') continue;
+        const c = e.competitions[0].competitors;
+        const home = c.find(x => x.homeAway === 'home'), away = c.find(x => x.homeAway === 'away');
+        if (!home || !away) continue;
+        const hb = isBig4(home.team.displayName), ab = isBig4(away.team.displayName);
+        const derby = code === 'tur.1' && hb && ab;
+        if (!derby && (code === 'tur.1' || !(hb || ab))) continue; // ligde yalnızca derbi, Avrupa'da 4 büyükten biri
+        out.push({ id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName, away: away.team.shortDisplayName || away.team.displayName, ts: new Date(e.date).getTime(), hl: home.team.logo || null, al: away.team.logo || null, derby });
+      }
+    } catch (err) { bigError = err.message; console.error('Büyük maç alınamadı', code, err.message); }
+  }
+  if (!ok) return;
+  bigError = '';
+  const seen = new Set();
+  bigMatches = out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => a.ts - b.ts);
+  cachePut('bigmatches', bigMatches);
+  broadcast({ type: 'state', state: publicState() });
+}
+const activeBig = () => { const now = Date.now(), lim = Math.max(1, Math.min(7, Number(bigCfg().days) || 3)) * 24 * HOUR; return bigMatches.filter(m => m.ts > now && m.ts - now <= lim).map(m => ({ ...m, hl: localLogo(m.hl), al: localLogo(m.al) })); };
+setTimeout(refreshBigMatches, 7000);
+setInterval(refreshBigMatches, 30 * MIN);
+setInterval(() => { const sig = activeBig().map(m => m.id).join(); if (sig !== (global.__bigSig || '')) { global.__bigSig = sig; broadcast({ type: 'state', state: publicState() }); } }, MIN);
+
+
 // ---- Veritabanı yedekleri: günde bir (sabah 04:00'ten sonra), elle ve geri yüklemeden önce; son 30 tanesi tutulur ----
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
@@ -621,6 +662,8 @@ const publicState = () => ({
   onThisDay: onThisDay && onThisDay.date === ymd(new Date()) ? onThisDay : null,
   showNews: newsCfg().enabled !== false,
   showBooks: db.showBooks !== false,
+  bigMatches: bigCfg().enabled ? activeBig() : [],
+  bigCfg: { note: bigCfg().note, everyMin: bigCfg().everyMin, durSec: bigCfg().durSec },
   showMovies: movieCfg().enabled !== false,
   showTrailers: movieCfg().trailers !== false,
   movies: movies && movies.items && Date.now() - Date.parse(movies.updated) < 4 * 24 * HOUR ? { items: movies.items } : null,
@@ -801,6 +844,24 @@ app.post('/api/admin/pharmacy/test', async (req, res) => {
   if (!cfg.districts.length) return res.status(400).json({ error: 'En az bir ilçe girin' });
   try { const items = await fetchPharmacies(cfg); res.json({ ok: true, count: items.length, sample: items.slice(0, 3) }); }
   catch (e) { res.status(502).json({ error: e.message }); }
+});
+app.get('/api/admin/bigmatch', (_, res) => res.json({ items: activeBig(), all: bigMatches.length, error: bigError }));
+app.put('/api/admin/bigmatch', (req, res) => {
+  const b = req.body || {}, cur = bigCfg();
+  const num = (v, lo, hi, d) => isFinite(Number(v)) && v !== '' ? Math.max(lo, Math.min(hi, Math.round(Number(v)))) : d;
+  db.bigMatch = {
+    enabled: typeof b.enabled === 'boolean' ? b.enabled : cur.enabled,
+    note: typeof b.note === 'string' ? b.note.trim().slice(0, 140) : cur.note,
+    days: num(b.days, 1, 7, cur.days), everyMin: num(b.everyMin, 2, 60, cur.everyMin), durSec: num(b.durSec, 5, 60, cur.durSec),
+  };
+  changed(); res.json({ ok: true });
+  refreshBigMatches();
+});
+app.post('/api/admin/bigmatch/test', (_, res) => {
+  const items = activeBig();
+  const m = items[0] || { id: 'ornek', league: 'Süper Lig', home: 'Galatasaray', away: 'Fenerbahçe', ts: Date.now() + 3 * 24 * HOUR, hl: null, al: null, derby: true };
+  broadcast({ type: 'bigmatch', match: m, cfg: { note: bigCfg().note, durSec: bigCfg().durSec } });
+  res.json({ ok: true, sample: !items.length });
 });
 app.put('/api/admin/movies', (req, res) => {
   const b = req.body || {}, cur = movieCfg();
