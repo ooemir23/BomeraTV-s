@@ -81,7 +81,8 @@ video,#img{position:absolute;inset:.6vh;width:calc(100% - 1.2vh);height:calc(100
 .mv .mt{font-size:1.75vh;font-weight:700;line-height:1.25;color:var(--white);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .mv .mm{font-size:1.3vh;color:var(--accent2);font-weight:600;margin-top:.4vh}
 #trailer{position:absolute;inset:.6vh;z-index:5;display:none;background:#000;border-radius:1.39vh;overflow:hidden}
-#trailer.on{display:block}
+#trailer.on{display:block;animation:tfade 1.4s ease-in-out}
+@keyframes tfade{from{opacity:0}to{opacity:1}}
 #trailer iframe{position:absolute;width:116%;height:116%;left:-8%;top:-8%;border:0;pointer-events:none}
 #trailer .tt{position:absolute;left:2vh;top:2vh;max-width:70%;padding:1.4vh 2vw 1.6vh 1.6vw;background:rgba(10,8,6,.88);border-left:.6vh solid var(--accent2);border-radius:1vh;color:#fff;font-size:4.4vh;font-weight:800;line-height:1.15;text-shadow:0 .2vh .6vh #000;box-shadow:0 1vh 3vh rgba(0,0,0,.6);pointer-events:none}
 #trailer .tt small{display:block;font-size:2.1vh;font-weight:800;color:var(--accent2);letter-spacing:.14em;margin-bottom:.8vh}
@@ -198,8 +199,8 @@ background:radial-gradient(120% 90% at 50% 0%,#b07a45 0%,#5b3b1d 45%,#1d1713 100
 #bday.on{display:flex}
 #bday p{white-space:nowrap;font-size:5.4vh;font-weight:600;color:var(--white);padding-left:100%;animation:slide var(--d,20s) linear infinite}
 @keyframes slide{to{transform:translateX(-100%)}}
-video{transition:opacity .8s ease}
-#img{opacity:0;transition:opacity .8s ease}
+video{transition:opacity 1.6s ease-in-out}
+#img{opacity:0;transition:opacity 1.6s ease-in-out}
 html.lite #bgc{filter:none;transform:none}
 html.lite #tview{-webkit-mask-image:none;mask-image:none}
 html.lite #qr-right .lbl,html.lite #qr-left .lbl,html.lite #tchip,html.lite #tidx,html.lite #tlegend{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(20,22,24,.93)}
@@ -248,7 +249,7 @@ html.lite #traffic::after{box-shadow:none}
 #menu button:focus{box-shadow:0 0 0 .4vh #fff}
 #menu .hint{margin-top:1.6vh;font-size:1.6vh;color:#888}
 /* kampanya kartı */
-#camp{position:absolute;inset:.6vh;z-index:7;border-radius:1.39vh;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;align-items:center;justify-content:center;gap:4vw;padding:3vh 3vw;background:radial-gradient(ellipse 70% 70% at 30% 40%,#4a2f18 0%,#2a1b0f 60%,#1a110a 100%)}
+#camp{position:absolute;inset:.6vh;z-index:7;border-radius:1.39vh;overflow:hidden;opacity:0;pointer-events:none;transition:opacity 1.4s ease-in-out;display:flex;align-items:center;justify-content:center;gap:4vw;padding:3vh 3vw;background:radial-gradient(ellipse 70% 70% at 30% 40%,#4a2f18 0%,#2a1b0f 60%,#1a110a 100%)}
 #camp.on{opacity:1}
 #camp .cl{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2vh}
 #camp .cup{height:15vh;width:auto;overflow:visible}
@@ -265,7 +266,7 @@ html.lite #camp .cup .st{animation:none;opacity:.7}
 #camp .qb svg{width:100%;height:100%;display:block}
 #camp .ql{font-size:2.2vh;font-weight:700;letter-spacing:.06em;color:#fff;text-align:center;max-width:32vh}
 #camp .ql small{display:block;margin-top:.5vh;font-size:1.6vh;font-weight:500;color:#f3cf9e;letter-spacing:.1em}
-#big{position:absolute;inset:.6vh;z-index:7;border-radius:1.39vh;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .8s;background:#0a0a0c;color:#fff}
+#big{position:absolute;inset:.6vh;z-index:7;border-radius:1.39vh;overflow:hidden;opacity:0;pointer-events:none;transition:opacity 1.4s ease-in-out;background:#0a0a0c;color:#fff}
 #big.on{opacity:1}
 #big .bl,#big .br{position:absolute;inset:0}
 #big .bl{background:linear-gradient(160deg,var(--c1) 0%,#0a0a0c 120%);clip-path:polygon(0 0,57% 0,43% 100%,0 100%)}
@@ -406,12 +407,12 @@ function play() {
   if (it.type === 'image') {
     els.forEach(e => { e.pause(); e.style.opacity = '0'; });
     const showImg = () => { img.style.display = 'block'; img.src = it.url; const go = () => requestAnimationFrame(() => requestAnimationFrame(() => { if (current === it.id) img.style.opacity = '1'; })); if (img.decode) img.decode().then(go, go); else go(); };
-    if (img.style.display === 'block' && img.style.opacity === '1') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) showImg(); }, 450); } // fotoğraftan fotoğrafa: önce söner, sonra yenisi belirir
+    if (img.style.display === 'block' && img.style.opacity === '1') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) showImg(); }, 800); } // fotoğraftan fotoğrafa: önce söner, sonra yenisi belirir
     else { img.style.opacity = '0'; showImg(); }
     timer = setTimeout(next, imageSeconds * 1000);
     setTimeout(prepNext, 500);
   } else {
-    if (img.style.display === 'block') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) img.style.display = 'none'; }, 850); } // fotoğraf yumuşakça söner, video belirir
+    if (img.style.display === 'block') { img.style.opacity = '0'; setTimeout(() => { if (current === it.id) img.style.display = 'none'; }, 1700); } // fotoğraf yumuşakça söner, video belirir
     if (window.__lite) bctx.clearRect(0, 0, bgc.width, bgc.height); // hafif modda videonun arkasına bulanık kopya çizilmez
     let el, ready = false;
     if (prepared.id === it.id && idleV().dataset.url === it.url) { ci = 1 - ci; el = curV(); ready = el.readyState >= 2; }
@@ -999,7 +1000,7 @@ function campShow(c) {
     + '<h2>' + esc(c.headline) + '</h2><div class="stars">★★★★★</div><div class="sub">' + esc(c.sub) + '</div>' + (c.note ? '<div class="note">' + esc(c.note) + '</div>' : '') + '</div>'
     + '<div class="cr"><div class="qb">' + c.svg + '</div><div class="ql">' + esc(c.qrLabel || '') + '<small>QR KODU TELEFONUNUZLA OKUTUN</small></div></div>';
   setTimeout(() => el.classList.add('on'), 60);
-  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { camp.showing = false; }, 900); }, (c.durSec || 15) * 1000);
+  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { camp.showing = false; }, 1500); }, (c.durSec || 15) * 1000);
 }
 function setCampaigns(list) { camp.list = list || []; }
 // ---- büyük maç duyurusu: derbi / Avrupa kupası maçından en çok birkaç gün önce, rezervasyon notuyla ----
@@ -1030,7 +1031,7 @@ function bigShow(m, cfg) {
     + (cfg.note ? `<div class="bnote">${esc(cfg.note)}</div>` : '')
     + (info.length ? `<div class="bft">${info.map((t, i) => `<span>${icons[i % 3]} ${esc(t)}</span>`).join('')}</div>` : '<div style="height:1.4vh"></div>') + '</div></div>';
   setTimeout(() => el.classList.add('on'), 60);
-  setTimeout(() => { if (big.queue.length) { big.showing = false; bigShow(big.queue.shift()); return; } /* sıradaki maç: arada medya/kampanya görünmesin, kart doğrudan değişir */ if (big.after) { const f = big.after; big.after = null; f(); } /* fragman/medya kartın arkasında hazırlanır: kart sönünce eski medya görünmez */ el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; }, 900); }, (cfg.durSec || 15) * 1000);
+  setTimeout(() => { if (big.queue.length) { big.showing = false; bigShow(big.queue.shift()); return; } /* sıradaki maç: arada medya/kampanya görünmesin, kart doğrudan değişir */ if (big.after) { const f = big.after; big.after = null; f(); } /* fragman/medya kartın arkasında hazırlanır: kart sönünce eski medya görünmez */ el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; }, 1500); }, (cfg.durSec || 15) * 1000);
 }
 setInterval(() => {
   if (big.showing || big.due || camp.showing || trailerOn || !big.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
