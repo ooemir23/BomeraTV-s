@@ -325,8 +325,18 @@ addEventListener('message', e => {
   if (!trailerOn || !/youtube\.com$/.test(new URL(e.origin).hostname)) return;
   try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.event === 'onStateChange' && d.info === 0) endTrailer(); else if (d.event === 'onError') trailerError(); } catch (x) {}
 });
+// YouTube altyazıları (otomatik İngilizce dahil) kapatılır: modül geç yüklenebildiği için birkaç kez denenir
+function ytHandshake(f) {
+  const send = o => { try { f.contentWindow.postMessage(JSON.stringify(o), '*'); } catch (e) {} };
+  send({ event: 'listening', id: 1 });
+  [0, 600, 1500, 3000, 6000].forEach(t => setTimeout(() => {
+    if (!f.isConnected) return;
+    send({ event: 'command', func: 'unloadModule', args: ['captions'] });
+    send({ event: 'command', func: 'unloadModule', args: ['cc'] });
+  }, t));
+}
 function showTrailer(m, key) {
-  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&cc_load_policy=0&iv_load_policy=3&enablejsapi=1" onload="try{this.contentWindow.postMessage(JSON.stringify({event:'listening',id:1}),'*')}catch(e){}"></iframe><div class="tt"><small>BU HAFTA SİNEMALARDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
+  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&cc_load_policy=0&hl=tr&cc_lang_pref=tr&iv_load_policy=3&enablejsapi=1" onload="ytHandshake(this)"></iframe><div class="tt"><small>BU HAFTA SİNEMALARDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
   trailerEl.classList.add('on');
   clearTimeout(trailerTimer);
   trailerTimer = setTimeout(endTrailer, 3 * 60 * 1000); // bitiş haberi gelmezse en çok 3 dk
