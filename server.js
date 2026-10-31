@@ -375,7 +375,7 @@ setTimeout(refreshBooks, 9000);
 setInterval(refreshBooks, 30 * MIN);
 
 
-// ---- Bu hafta Türkiye'de vizyondaki filmler ve fragmanları (TMDB, ücretsiz anahtar admin panelinden girilir): günde bir kez ----
+// ---- Türkiye sinemalarında şu an gösterilen filmler ve fragmanları (TMDB, ücretsiz anahtar admin panelinden girilir): günde bir kez ----
 const movieCfg = () => db.movies || {};
 let movies = cacheGet('movies');
 let moviesError = '', moviesFailAt = 0;
@@ -387,13 +387,13 @@ async function tmdb(p, key) {
   return j;
 }
 async function fetchMovies(key) {
-  // Türkiye'de vizyon günü cuma: geçen cumadan gelecek perşembeye (bu hafta) çıkan filmler
+  // Türkiye'de vizyon günü cuma: son 3 haftada ve bu hafta sinemalara çıkmış filmler (yalnızca sinema gösterimi, dijital platform yok)
   const now = new Date(), dow = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' }).format(now);
   const back = { Fri: 0, Sat: 1, Sun: 2, Mon: 3, Tue: 4, Wed: 5, Thu: 6 }[dow];
-  const from = ymd(new Date(now.getTime() - back * 24 * HOUR)), to = ymd(new Date(now.getTime() + (6 - back) * 24 * HOUR));
-  const j = await tmdb(`/discover/movie?region=TR&with_release_type=2|3&release_date.gte=${from}&release_date.lte=${to}&language=tr-TR&sort_by=popularity.desc&include_adult=false`, key);
+  const from = ymd(new Date(now.getTime() - (back + 14) * 24 * HOUR)), to = ymd(new Date(now.getTime() + (6 - back) * 24 * HOUR));
+  const j = await tmdb(`/discover/movie?region=TR&with_release_type=3&release_date.gte=${from}&release_date.lte=${to}&language=tr-TR&sort_by=popularity.desc&include_adult=false`, key);
   const items = [];
-  for (const m of (j.results || []).slice(0, 8)) {
+  for (const m of (j.results || []).slice(0, 10)) {
     let trailer = '', alts = [];
     try {
       const cand = [];

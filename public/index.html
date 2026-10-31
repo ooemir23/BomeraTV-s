@@ -304,7 +304,7 @@ const els = [document.getElementById('v'), document.getElementById('v2')], img =
 let ci = 0; const curV = () => els[ci], idleV = () => els[1 - ci];
 let videos = [], idx = 0, current = null, imageSeconds = 10, timer, prepared = { id: null };
 const bgc = document.getElementById('bgc'), bctx = bgc.getContext('2d');
-// Fragmanlar: her 4 içerikte bir (en az 8 dk arayla) yan yana vizyondaki filmlerin fragmanı sessiz oynar
+// Fragmanlar: her 4 içerikte bir (en az 8 dk arayla) sinemadaki filmlerin fragmanı sessiz oynar
 let trailerList = [], trailerIdx = 0, trailerPlays = 0, trailerAt = 0, trailerOn = false, trailerTimer;
 const trailerEl = document.getElementById('trailer');
 let trailerTry = 0, trailerCur = null;
@@ -326,7 +326,7 @@ addEventListener('message', e => {
   try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.event === 'onStateChange' && d.info === 0) endTrailer(); else if (d.event === 'onError') trailerError(); } catch (x) {}
 });
 function showTrailer(m, key) {
-  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&enablejsapi=1" onload="try{this.contentWindow.postMessage(JSON.stringify({event:'listening',id:1}),'*')}catch(e){}"></iframe><div class="tt"><small>BU HAFTA VİZYONDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
+  trailerEl.innerHTML = `<iframe allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" src="https://www.youtube.com/embed/${encodeURIComponent(key)}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&enablejsapi=1" onload="try{this.contentWindow.postMessage(JSON.stringify({event:'listening',id:1}),'*')}catch(e){}"></iframe><div class="tt"><small>BU HAFTA SİNEMALARDA${m.date ? ' · ' + esc(trDate(m.date)) : ''}</small>${esc(m.title)}</div>`;
   trailerEl.classList.add('on');
   clearTimeout(trailerTimer);
   trailerTimer = setTimeout(endTrailer, 3 * 60 * 1000); // bitiş haberi gelmezse en çok 3 dk
@@ -522,7 +522,7 @@ function render() {
   const isTraffic = pg.type === 'traffic';
   tr.classList.toggle('off', !isTraffic);
   list.style.display = isTraffic ? 'none' : 'flex';
-  document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'movies' ? `Vizyondaki Filmler<em>BU HAFTA${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'books' ? `Yeni Çıkan Kitaplar<em>${pg.parts > 1 ? `${pg.part}/${pg.parts}` : 'D&R'}</em>` : pg.type === 'news' ? `Gündem<em>TÜRKİYE${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
+  document.getElementById('mtitle').innerHTML = isTraffic ? 'İstanbul Trafik' : pg.type === 'empty' ? 'Maçlar' : pg.type === 'movies' ? `Sinemalarda<em>BU HAFTA${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'books' ? `Yeni Çıkan Kitaplar<em>${pg.parts > 1 ? `${pg.part}/${pg.parts}` : 'D&R'}</em>` : pg.type === 'news' ? `Gündem<em>TÜRKİYE${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'pharm' ? `Nöbetçi Eczaneler<em>${esc((pharmData.districts || []).join(' · ').toLocaleUpperCase('tr-TR'))}${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'otd' ? `Tarihte Bugün<em>${pg.date ? esc(Number(pg.date.split('-')[2]) + ' ' + MONTHS[Number(pg.date.split('-')[1]) - 1].toLocaleUpperCase('tr-TR')) : ''}${pg.parts > 1 ? ` · ${pg.part}/${pg.parts}` : ''}</em>` : pg.type === 'table' ? `${esc(pg.league)}<em>PUAN DURUMU${pg.parts > 1 ? ` ${pg.part}/${pg.parts}` : ''}</em>` : esc(pg.league);
   document.getElementById('mtitle').classList.toggle('long', document.getElementById('mtitle').textContent.length > 20);
   if (pg.type === 'league') list.innerHTML = pg.items.map(card).join('');
   else if (pg.type === 'table') list.innerHTML = tableHtml(pg.rows);
@@ -616,7 +616,7 @@ function infoItems() {
   if (r.gold) mk.push(it('PİYASA', `ALTIN ${f(r.gold, 0)} ₺${chgT(r.goldCh)}${r.bist ? ` · BIST 100 ${f(r.bist, 0)}${chgT(r.bistCh)}` : ''}${r.btc ? ` · BITCOIN $${f(r.btc, 0)}${chgT(r.btcCh)}` : ''}`));
   cats.push(mk);
   cats.push((showNews && newsData ? newsData.items : []).map(n => it('HABER', `${esc(n.title)} <span class="ft">${esc(n.source)}</span>`)));
-  cats.push((showMovies && moviesData ? moviesData.items : []).map(m => it('VİZYONDA', `${esc(m.title)}${m.date ? ' · ' + esc(trDate(m.date)) : ''}`)));
+  cats.push((showMovies && moviesData ? moviesData.items : []).map(m => it('SİNEMADA', `${esc(m.title)}${m.date ? ' · ' + esc(trDate(m.date)) : ''}`)));
   cats.push((showBooks && booksData ? booksData.items : []).map(b => it('YENİ KİTAP', `${esc(b.title)}${b.author ? ' · ' + esc(b.author) : ''}`)));
   cats.push((showOtd && otdData ? otdData.items : []).map(e => it('TARİHTE BUGÜN', `<b>${esc(e.year)}</b> ${esc(e.text)}`)));
   cats.push((showPharm && pharmData ? pharmData.items : []).map(p => it('NÖBETÇİ ECZANE', `${esc(p.name)} · ${esc(p.address)}${p.phone ? ' · ☎ ' + esc(fmtPhone(p.phone)) : ''}`)));
