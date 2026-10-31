@@ -330,6 +330,15 @@ label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;letter-
       <div class="fld" style="max-width:150px"><label class="f">Kaç dakikada bir</label><input type="number" id="bgevery" min="2" max="60"></div>
       <div class="fld" style="max-width:150px"><label class="f">Kaç saniye kalsın</label><input type="number" id="bgdur" min="5" max="60"></div>
     </div>
+    <div class="row" style="margin-top:12px">
+      <div class="fld"><label class="f">Alt bilgi 1 (örn. adres)</label><input type="text" id="bginfo0" maxlength="60"></div>
+      <div class="fld"><label class="f">Alt bilgi 2</label><input type="text" id="bginfo1" maxlength="60"></div>
+      <div class="fld"><label class="f">Alt bilgi 3</label><input type="text" id="bginfo2" maxlength="60"></div>
+    </div>
+    <label class="f" style="margin-top:16px">Oyuncu / takım fotoğrafları (isteğe bağlı)</label>
+    <p class="hint" style="margin:4px 0 10px">Görselde takımın tarafında büyük görünür; arkası şeffaf PNG en güzel sonucu verir. Fotoğraf yoksa takım logosu kullanılır. Takım başına bir fotoğraf (yenisi eskisinin yerine geçer, en çok 8 MB).</p>
+    <div class="row"><div class="fld" style="max-width:260px"><input type="text" id="bgteam" list="bgteams" placeholder="Takım adı (örn. Fenerbahçe)"><datalist id="bgteams"><option value="Galatasaray"><option value="Fenerbahçe"><option value="Beşiktaş"><option value="Trabzonspor"></datalist></div><input type="file" id="bgfile" accept="image/*" style="display:none" onchange="uploadBigPhoto()"><button class="btn ghost" onclick="$('bgfile').click()">Fotoğraf yükle</button></div>
+    <div id="bgphotos" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px"></div>
     <div class="row" style="margin-top:12px"><button class="btn" onclick="saveBig(true)">Kaydet</button><button class="btn ghost" onclick="testBig()">Şimdi TV'de göster (test)</button></div>
     <div id="bglist" class="hint" style="margin:12px 0 0"></div>
   </div>
@@ -680,7 +689,7 @@ function renderInfo() {
   const c = db.pharmacy || {};
   $('phen').checked = c.enabled !== false; $('phil').value = c.il || 'İstanbul'; $('phdist').value = (c.districts || []).join(', '); $('phkey').value = c.key || '';
   const nc = db.news || {}; $('nwen').checked = nc.enabled !== false; $('nwtag').value = nc.tag || 'general'; $('nwhours').value = String(nc.hours || 3); $('nwkey').value = nc.key || '';
-  $('otden').checked = db.showOnThisDay !== false; $('bken').checked = db.showBooks !== false; const bc = db.bigMatch || {}; $('bgen').checked = bc.enabled !== false; $('bgnote').value = bc.note !== undefined ? bc.note : 'Rezervasyon yaptırmayı unutmayın!'; $('bgdays').value = bc.days || 3; $('bgevery').value = bc.everyMin || 6; $('bgdur').value = bc.durSec || 15; loadBigList(); const mc = db.movies || {}; $('mven').checked = mc.enabled !== false; $('mvtr').checked = mc.trailers !== false; $('mvkey').value = mc.key || ''; loadCeleb();
+  $('otden').checked = db.showOnThisDay !== false; $('bken').checked = db.showBooks !== false; const bc = db.bigMatch || {}; $('bgen').checked = bc.enabled !== false; $('bgnote').value = bc.note !== undefined ? bc.note : 'Rezervasyon yaptırmayı unutmayın!'; $('bgdays').value = bc.days || 3; $('bgevery').value = bc.everyMin || 6; $('bgdur').value = bc.durSec || 15; const bi = bc.info || ['', 'MAÇ KEYFİ BOMERA\'DA!', 'NARGİLE & İÇECEK EŞLİĞİNDE']; [0, 1, 2].forEach(i => $('bginfo' + i).value = bi[i] || ''); loadBigList(); const mc = db.movies || {}; $('mven').checked = mc.enabled !== false; $('mvtr').checked = mc.trailers !== false; $('mvkey').value = mc.key || ''; loadCeleb();
   const o = pub.onThisDay;
   $('otdlist').innerHTML = o && o.items.length ? o.items.map(e => `<div class="item"><b style="color:var(--accent2);min-width:56px">${esc(e.year)}</b><div class="body"><span style="white-space:normal;color:var(--text)">${esc(e.text)}</span></div></div>`).join('') : '<div class="empty">Bugünün listesi henüz alınmadı.</div>';
   loadFresh();
@@ -700,12 +709,22 @@ async function loadFresh() {
     $('freshness').innerHTML = rows.map(r => `<div class="item"><div class="body"><b>${esc(r[0])}</b><span style="white-space:normal">${esc(r[1])}</span></div><span style="color:var(--mute);font-size:12px">${esc(r[2])}</span></div>`).join('') + (f.nobetciHata ? `<p class="hint" style="color:var(--bad)">Nöbetçi eczane hatası: ${esc(f.nobetciHata)}</p>` : '');
   } catch (e) {}
 }
-function saveBig(manual) { return api('PUT', '/bigmatch', { enabled: $('bgen').checked, note: $('bgnote').value, days: $('bgdays').value, everyMin: $('bgevery').value, durSec: $('bgdur').value }, manual ? 'Büyük maç ayarları kaydedildi' : ($('bgen').checked ? 'Büyük maç görseli açıldı' : 'Büyük maç görseli kapatıldı')); }
+function saveBig(manual) { return api('PUT', '/bigmatch', { enabled: $('bgen').checked, note: $('bgnote').value, days: $('bgdays').value, everyMin: $('bgevery').value, durSec: $('bgdur').value, info: [0, 1, 2].map(i => $('bginfo' + i).value) }, manual ? 'Büyük maç ayarları kaydedildi' : ($('bgen').checked ? 'Büyük maç görseli açıldı' : 'Büyük maç görseli kapatıldı')); }
 async function loadBigList() {
   try {
     const j = await (await fetch('/api/admin/bigmatch')).json();
+    $('bgphotos').innerHTML = (j.photos || []).map(p => `<div style="text-align:center"><img src="${p.url}" style="height:90px;border-radius:8px;background:#222;display:block"><div class="hint" style="margin:4px 0">${esc(p.name)}</div><button class="btn danger sm" onclick="del('/bigmatch/photo/${p.id}','${esc(p.name).replace(/'/g, '')}')">Sil</button></div>`).join('');
     $('bglist').innerHTML = j.items.length ? '<b>Ekrana gelecek maçlar:</b><br>' + j.items.map(m => `${esc(m.league)}: ${esc(m.home)} - ${esc(m.away)} · ${new Date(m.ts).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: 'numeric', month: 'long', weekday: 'long', hour: '2-digit', minute: '2-digit' })}`).join('<br>') : 'Şu an seçilen gün aralığında derbi ya da Avrupa kupası maçı yok.' + (j.error ? ' (Veri hatası: ' + esc(j.error) + ')' : '');
   } catch (e) {}
+}
+async function uploadBigPhoto() {
+  const f = $('bgfile').files[0], team = $('bgteam').value.trim(); $('bgfile').value = '';
+  if (!f) return;
+  if (!team) { toast('Önce takım adını yazın', true); return; }
+  const fd = new FormData(); fd.append('team', team); fd.append('file', f);
+  const r = await fetch('/api/admin/bigmatch/photo', { method: 'POST', body: fd });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); toast(j.error || 'Yüklenemedi', true); return; }
+  toast('Fotoğraf eklendi'); load();
 }
 async function testBig() { const r = await fetch('/api/admin/bigmatch/test', { method: 'POST' }); const j = await r.json().catch(() => ({})); toast(j.sample ? 'Yaklaşan maç yok: örnek görsel TV\'de gösterildi' : 'Görsel TV\'lerde gösterildi'); }
 function saveMovies(manual) { return api('PUT', '/movies', { enabled: $('mven').checked, trailers: $('mvtr').checked, key: $('mvkey').value.trim() }, manual ? 'Film ayarları kaydedildi' : 'Film ayarı güncellendi'); }

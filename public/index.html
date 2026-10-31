@@ -263,18 +263,30 @@ html.lite #camp .cup .st{animation:none;opacity:.7}
 #camp .qb svg{width:100%;height:100%;display:block}
 #camp .ql{font-size:2.2vh;font-weight:700;letter-spacing:.06em;color:#fff;text-align:center;max-width:32vh}
 #camp .ql small{display:block;margin-top:.5vh;font-size:1.6vh;font-weight:500;color:#f3cf9e;letter-spacing:.1em}
-#big{position:absolute;inset:.6vh;z-index:7;border-radius:1.39vh;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4vh 3vw 0;background:radial-gradient(ellipse 80% 70% at 50% 35%,#4a2f18 0%,#2a1b0f 55%,#140d07 100%)}
+#big{position:absolute;inset:.6vh;z-index:7;border-radius:1.39vh;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .8s;background:#0a0a0c;color:#fff}
 #big.on{opacity:1}
-#big .bk1{font-size:2.6vh;font-weight:800;letter-spacing:.3em;color:var(--accent2);text-align:center}
-#big .bt1{font-size:7.2vh;font-weight:900;line-height:1.05;color:#fff;text-align:center;text-shadow:0 .4vh 1.4vh #000a;margin-top:1vh}
-#big .bm1{display:flex;align-items:center;justify-content:center;gap:4vw;width:100%}
-#big .bte{flex:1;display:flex;flex-direction:column;align-items:center;gap:2vh;min-width:0}
-#big .bte img{height:24vh;width:24vh;object-fit:contain;filter:drop-shadow(0 .8vh 1.6vh #000a)}
-#big .bte b{font-size:4.2vh;font-weight:800;color:#fff;text-align:center;line-height:1.1}
-#big .bvs{font-size:4.4vh;font-weight:900;color:var(--accent2);letter-spacing:.1em}
-#big .bwh{text-align:center;font-size:3.6vh;font-weight:700;color:#f3cf9e}
-#big .bwh small{display:block;font-size:2.4vh;font-weight:600;color:#e5d6c3;margin-top:.6vh}
-#big .bnote{align-self:stretch;margin:0 -3vw;padding:2.2vh 3vw;background:linear-gradient(90deg,#906538,#c9955c,#906538);color:#1a110a;font-size:3.4vh;font-weight:800;text-align:center}
+#big .bl,#big .br{position:absolute;inset:0}
+#big .bl{background:linear-gradient(160deg,var(--c1) 0%,#0a0a0c 120%);clip-path:polygon(0 0,57% 0,43% 100%,0 100%)}
+#big .br{background:linear-gradient(200deg,var(--c2) 0%,#0a0a0c 120%);clip-path:polygon(57% 0,100% 0,100% 100%,43% 100%)}
+#big .bsh{position:absolute;inset:0;background:radial-gradient(ellipse 50% 45% at 50% 0%,rgba(255,255,255,.22),transparent 70%),radial-gradient(ellipse 100% 60% at 50% 100%,rgba(0,0,0,.85),transparent 70%)}
+#big .bfl{position:absolute;top:-4vh;height:46vh;width:46vh;object-fit:contain;opacity:.28}
+#big .bph{position:absolute;bottom:0;height:78%;max-width:46%;object-fit:contain;object-position:bottom;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
+#big .bbg{position:absolute;top:27%;height:24vh;width:24vh;object-fit:contain;filter:drop-shadow(0 1vh 2vh #000b)}
+#big .bc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2.4vh 3vw 0}
+#big .blogo{height:9vh;width:auto}
+#big .bt1{font-size:8.6vh;font-weight:900;font-style:italic;line-height:1;text-transform:uppercase;letter-spacing:.01em;background:linear-gradient(#ffe9a8,#e8b13c 55%,#b9791a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 .5vh .8vh #000c);text-align:center}
+#big .bk1{font-size:2.3vh;font-weight:800;letter-spacing:.34em;color:#f3cf9e;text-align:center;margin-top:.8vh}
+#big .btm{display:flex;flex-direction:column;align-items:center;width:100%;gap:1.3vh}
+#big .bnm{display:flex;align-items:center;justify-content:center;gap:2vw;width:100%}
+#big .bnm b{flex:1;font-size:6vh;font-weight:900;line-height:1.05;text-transform:uppercase;text-align:center;color:#f4c04f;text-shadow:0 .4vh 1vh #000}
+#big .bnm b.sm{font-size:4.2vh}
+#big .bnm i{font-style:normal;font-size:3.6vh;font-weight:800;color:#fff;opacity:.9}
+#big .bclk{display:flex;align-items:center;gap:1.4vw;font-size:8.4vh;font-weight:900;line-height:1;text-shadow:0 .4vh 1vh #000}
+#big .bclk svg{height:7vh;width:7vh}
+#big .bday{padding:.7vh 3vw;border-radius:.8vh;background:linear-gradient(#f4c04f,#c98d22);color:#1a110a;font-size:3vh;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+#big .bnote{align-self:stretch;margin:.4vh -3vw 0;padding:1.3vh 3vw;background:rgba(0,0,0,.6);border-top:.2vh solid rgba(244,192,79,.7);border-bottom:.2vh solid rgba(244,192,79,.7);color:#fff;font-size:3.2vh;font-weight:800;text-align:center}
+#big .bft{align-self:stretch;margin:0 -3vw;padding:1.2vh 3vw 1.4vh;display:flex;justify-content:space-around;gap:2vw;background:rgba(0,0,0,.72);font-size:1.9vh;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#f3cf9e}
+#big .bft span{display:flex;align-items:center;gap:.6vw;text-align:center}
 #cphoto{position:absolute;inset:.6vh;z-index:6;border-radius:1.39vh;overflow:hidden;background:#0d0d0e;opacity:0;pointer-events:none;transition:opacity .9s}
 #cphoto.on{opacity:1}
 #cphoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:grayscale(1) contrast(1.05)}
@@ -972,15 +984,23 @@ function bigShow(m, cfg) {
   const z = { timeZone: 'Europe/Istanbul' };
   const d0 = new Date(m.ts), dk = x => new Intl.DateTimeFormat('en-CA', z).format(x);
   const days = Math.round((Date.parse(dk(d0)) - Date.parse(dk(new Date()))) / 86400000);
-  const when = days <= 0 ? 'BUGÜN' : days === 1 ? 'YARIN' : days + ' GÜN SONRA';
   const dayName = d0.toLocaleDateString('tr-TR', { ...z, day: 'numeric', month: 'long', weekday: 'long' }), tm = d0.toLocaleTimeString('tr-TR', { ...z, hour: '2-digit', minute: '2-digit' });
-  const team = (n, l) => `<div class="bte">${l ? `<img src="${esc(l)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : ''}<b>${esc(n)}</b></div>`;
+  const info = (cfg.info || []).filter(Boolean), icons = ['📍', '🎮', '💨'];
   let el = document.getElementById('big');
   if (!el) { el = document.createElement('div'); el.id = 'big'; document.getElementById('frame').appendChild(el); }
-  el.innerHTML = `<div><div class="bk1">${esc((m.league || '').toLocaleUpperCase('tr-TR'))}</div><div class="bt1">${m.derby ? 'DERBİ HEYECANI' : 'AVRUPA GECESİ'}</div></div>`
-    + `<div class="bm1">${team(m.home, m.hl)}<div class="bvs">VS</div>${team(m.away, m.al)}</div>`
-    + `<div class="bwh">${esc(dayName)} · ${esc(tm)}<small>${when}</small></div>`
-    + (cfg.note ? `<div class="bnote">${esc(cfg.note)}</div>` : '<div></div>');
+  el.style.setProperty('--c1', m.hc || '#12307f'); el.style.setProperty('--c2', m.ac || '#2c2c30');
+  const side = (logo, photo, left) => (photo
+    ? `<img class="bph" style="${left ? 'left' : 'right'}:0" src="${esc(photo)}" alt="">` + (logo ? `<img class="bfl" style="${left ? 'left' : 'right'}:-4vh" src="${esc(logo)}" alt="">` : '')
+    : (logo ? `<img class="bbg" style="${left ? 'left' : 'right'}:7%" src="${esc(logo)}" alt="" referrerpolicy="no-referrer">` : ''));
+  const sub = m.derby ? '' : `<div class="bk1">${esc((m.league || '').toLocaleUpperCase('tr-TR'))}</div>`;
+  const dayTxt = days <= 0 ? 'BUGÜN' : days === 1 ? 'YARIN' : dayName;
+  el.innerHTML = '<div class="bl"></div><div class="br"></div><div class="bsh"></div>' + side(m.hl, m.hp, true) + side(m.al, m.ap, false)
+    + `<div class="bc"><div style="text-align:center"><img class="blogo" src="/logo.png" alt=""><div class="bt1" style="margin-top:1.4vh">${m.derby ? 'BÜYÜK DERBİ' : 'AVRUPA GECESİ'}</div>${sub}</div>`
+    + `<div class="btm"><div class="bnm"><b${m.home.length > 13 ? ' class="sm"' : ''}>${esc(m.home)}</b><i>VS</i><b${m.away.length > 13 ? ' class="sm"' : ''}>${esc(m.away)}</b></div>`
+    + `<div class="bclk"><svg viewBox="0 0 24 24" fill="none" stroke="#f4c04f" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 6.5V12l3.5 2"/></svg>${esc(tm)}</div>`
+    + `<div class="bday">${esc(dayTxt)}</div>`
+    + (cfg.note ? `<div class="bnote">${esc(cfg.note)}</div>` : '')
+    + (info.length ? `<div class="bft">${info.map((t, i) => `<span>${icons[i % 3]} ${esc(t)}</span>`).join('')}</div>` : '<div style="height:1.4vh"></div>') + '</div></div>';
   setTimeout(() => el.classList.add('on'), 60);
   setTimeout(() => { el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; }, 900); }, (cfg.durSec || 15) * 1000);
 }

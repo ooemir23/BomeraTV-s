@@ -16,7 +16,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 }, movies: { enabled: true, key: '', trailers: true }, bigMatch: { enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15 } };
+let db = { videos: [], matches: [], birthdays: [], times: ['13:00', '19:00'], duration: 40, imageSeconds: 10, reviews: [], leagues: null, channels: {}, leagueChannels: {}, showStandings: true, trafficApi: '', trafficSecret: '', qrs: [], showQr: true, fxMode: 'auto', safeInset: 0, safeGuide: false, showOnThisDay: true, pharmacy: { enabled: true, key: '', il: 'İstanbul', districts: [] }, news: { enabled: true, key: '', tag: 'general', hours: 3 }, movies: { enabled: true, key: '', trailers: true }, bigMatch: { enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, info: ['', 'MAÇ KEYFİ BOMERA\'DA!', 'NARGİLE & İÇECEK EŞLİĞİNDE'] }, bigPhotos: [] };
 if (fs.existsSync(DB_FILE)) db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 (db.birthdays || []).forEach(b => { if (typeof b.text !== 'string') b.text = '🎉 Doğum günün kutlu olsun ' + b.name + '! 🎂'; }); // eski kayıtlar: yazı artık elle düzenlenir
 const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -436,7 +436,7 @@ setInterval(refreshPharmacies, 30 * MIN); // ağa yalnızca nöbet günü deği�
 
 
 // ---- Büyük maç duyurusu: 4 büyüklerin derbileri ve Avrupa kupası maçları, başlamadan en çok N gün önce ekranda görsel olarak çıkar ----
-const bigCfg = () => ({ enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, ...(db.bigMatch || {}) });
+const bigCfg = () => ({ enabled: true, note: 'Rezervasyon yaptırmayı unutmayın!', days: 3, everyMin: 6, durSec: 15, info: ['', 'MAÇ KEYFİ BOMERA\'DA!', 'NARGİLE & İÇECEK EŞLİĞİNDE'], ...(db.bigMatch || {}) });
 const norm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i').toLowerCase();
 const isBig4 = name => ['galatasaray', 'fenerbahce', 'besiktas', 'trabzonspor'].some(k => norm(name).includes(k));
 const BIG_LEAGUES = [['tur.1', 'Süper Lig'], ['uefa.champions', 'Şampiyonlar Ligi'], ['uefa.europa', 'Avrupa Ligi'], ['uefa.europa.conf', 'Konferans Ligi'], ['uefa.champions_qual', 'Şampiyonlar Ligi Eleme']];
@@ -459,7 +459,7 @@ async function refreshBigMatches() {
         const hb = isBig4(home.team.displayName), ab = isBig4(away.team.displayName);
         const derby = code === 'tur.1' && hb && ab;
         if (!derby && (code === 'tur.1' || !(hb || ab))) continue; // ligde yalnızca derbi, Avrupa'da 4 büyükten biri
-        out.push({ id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName, away: away.team.shortDisplayName || away.team.displayName, ts: new Date(e.date).getTime(), hl: home.team.logo || null, al: away.team.logo || null, derby });
+        out.push({ id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName, away: away.team.shortDisplayName || away.team.displayName, ts: new Date(e.date).getTime(), hl: home.team.logo || null, al: away.team.logo || null, hcol: home.team.color || '', acol: away.team.color || '', hcol2: home.team.alternateColor || '', acol2: away.team.alternateColor || '', derby });
       }
     } catch (err) { bigError = err.message; console.error('Büyük maç alınamadı', code, err.message); }
   }
@@ -470,7 +470,16 @@ async function refreshBigMatches() {
   cachePut('bigmatches', bigMatches);
   broadcast({ type: 'state', state: publicState() });
 }
-const activeBig = () => { const now = Date.now(), lim = Math.max(1, Math.min(7, Number(bigCfg().days) || 3)) * 24 * HOUR; return bigMatches.filter(m => m.ts > now && m.ts - now <= lim).map(m => ({ ...m, hl: localLogo(m.hl), al: localLogo(m.al) })); };
+// Takım renkleri: dört büyük için sabit; diğerlerinde ESPN rengi (çok açık/siyahsa alternatifi, o da olmazsa nötr)
+const TEAM_COLORS = { galatasaray: '#a5142a', fenerbahce: '#12307f', besiktas: '#2c2c30', trabzonspor: '#7a1236' };
+const lum = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return -1; const n = parseInt(m[1], 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
+const teamColor = (name, c1, c2) => {
+  const k = Object.keys(TEAM_COLORS).find(x => norm(name).includes(x)); if (k) return TEAM_COLORS[k];
+  for (const c of [c1, c2]) { const l = lum(c); if (l > 0.12 && l < 0.55) return '#' + c.replace('#', ''); }
+  return '#2b3550';
+};
+const teamPhoto = name => { const p = (db.bigPhotos || []).find(x => norm(name).includes(x.key)); return p ? '/uploads/' + p.file : null; };
+const activeBig = () => { const now = Date.now(), lim = Math.max(1, Math.min(7, Number(bigCfg().days) || 3)) * 24 * HOUR; return bigMatches.filter(m => m.ts > now && m.ts - now <= lim).map(m => ({ ...m, hl: localLogo(m.hl), al: localLogo(m.al), hc: teamColor(m.home, m.hcol, m.hcol2), ac: teamColor(m.away, m.acol, m.acol2), hp: teamPhoto(m.home), ap: teamPhoto(m.away) })); };
 setTimeout(refreshBigMatches, 7000);
 setInterval(refreshBigMatches, 30 * MIN);
 setInterval(() => { const sig = activeBig().map(m => m.id).join(); if (sig !== (global.__bigSig || '')) { global.__bigSig = sig; broadcast({ type: 'state', state: publicState() }); } }, MIN);
@@ -663,7 +672,7 @@ const publicState = () => ({
   showNews: newsCfg().enabled !== false,
   showBooks: db.showBooks !== false,
   bigMatches: bigCfg().enabled ? activeBig() : [],
-  bigCfg: { note: bigCfg().note, everyMin: bigCfg().everyMin, durSec: bigCfg().durSec },
+  bigCfg: { note: bigCfg().note, info: bigCfg().info, everyMin: bigCfg().everyMin, durSec: bigCfg().durSec },
   showMovies: movieCfg().enabled !== false,
   showTrailers: movieCfg().trailers !== false,
   movies: movies && movies.items && Date.now() - Date.parse(movies.updated) < 4 * 24 * HOUR ? { items: movies.items } : null,
@@ -845,22 +854,38 @@ app.post('/api/admin/pharmacy/test', async (req, res) => {
   try { const items = await fetchPharmacies(cfg); res.json({ ok: true, count: items.length, sample: items.slice(0, 3) }); }
   catch (e) { res.status(502).json({ error: e.message }); }
 });
-app.get('/api/admin/bigmatch', (_, res) => res.json({ items: activeBig(), all: bigMatches.length, error: bigError }));
+app.get('/api/admin/bigmatch', (_, res) => res.json({ items: activeBig(), all: bigMatches.length, error: bigError, photos: (db.bigPhotos || []).map(p => ({ id: p.id, name: p.name, url: '/uploads/' + p.file })) }));
 app.put('/api/admin/bigmatch', (req, res) => {
   const b = req.body || {}, cur = bigCfg();
   const num = (v, lo, hi, d) => isFinite(Number(v)) && v !== '' ? Math.max(lo, Math.min(hi, Math.round(Number(v)))) : d;
   db.bigMatch = {
     enabled: typeof b.enabled === 'boolean' ? b.enabled : cur.enabled,
     note: typeof b.note === 'string' ? b.note.trim().slice(0, 140) : cur.note,
+    info: Array.isArray(b.info) ? b.info.slice(0, 3).map(x => String(x || '').trim().slice(0, 60)) : cur.info,
     days: num(b.days, 1, 7, cur.days), everyMin: num(b.everyMin, 2, 60, cur.everyMin), durSec: num(b.durSec, 5, 60, cur.durSec),
   };
   changed(); res.json({ ok: true });
   refreshBigMatches();
 });
+app.post('/api/admin/bigmatch/photo', upload.single('file'), (req, res) => {
+  const f = req.file, name = String((req.body && req.body.team) || '').trim().slice(0, 40);
+  if (!f) return res.status(400).json({ error: 'dosya yok' });
+  const bad = msg => { fs.rmSync(f.path, { force: true }); return res.status(400).json({ error: msg }); };
+  if (!name || !norm(name)) return bad('takım adı yazın');
+  if (!/\.(jpe?g|png|webp)$/i.test(f.originalname) || f.size > 8 * 1024 * 1024) return bad('JPG/PNG/WEBP ve en çok 8 MB olmalı');
+  db.bigPhotos = (db.bigPhotos || []).filter(p => { if (p.key !== norm(name)) return true; fs.rmSync(path.join(UPLOAD_DIR, p.file), { force: true }); return false; }); // takım başına tek fotoğraf
+  db.bigPhotos.push({ id: uid(), key: norm(name), name, file: f.filename });
+  changed(); res.json({ ok: true });
+});
+app.delete('/api/admin/bigmatch/photo/:id', (req, res) => {
+  const p = (db.bigPhotos || []).find(x => x.id === req.params.id);
+  if (p) { fs.rmSync(path.join(UPLOAD_DIR, p.file), { force: true }); db.bigPhotos = db.bigPhotos.filter(x => x !== p); }
+  changed(); res.json({ ok: true });
+});
 app.post('/api/admin/bigmatch/test', (_, res) => {
   const items = activeBig();
-  const m = items[0] || { id: 'ornek', league: 'Süper Lig', home: 'Galatasaray', away: 'Fenerbahçe', ts: Date.now() + 3 * 24 * HOUR, hl: null, al: null, derby: true };
-  broadcast({ type: 'bigmatch', match: m, cfg: { note: bigCfg().note, durSec: bigCfg().durSec } });
+  const m = items[0] || { id: 'ornek', league: 'Süper Lig', home: 'Fenerbahçe', away: 'Beşiktaş', ts: Date.now() + 3 * 24 * HOUR, hl: '/logo/436.png', al: '/logo/1895.png', hc: TEAM_COLORS.fenerbahce, ac: TEAM_COLORS.besiktas, hp: teamPhoto('Fenerbahçe'), ap: teamPhoto('Beşiktaş'), derby: true };
+  broadcast({ type: 'bigmatch', match: m, cfg: { note: bigCfg().note, info: bigCfg().info, durSec: bigCfg().durSec } });
   res.json({ ok: true, sample: !items.length });
 });
 app.put('/api/admin/movies', (req, res) => {
@@ -912,11 +937,11 @@ function dirStat(dir) {
 app.get('/api/admin/storage', (_, res) => {
   const files = {}; let media = 0;
   for (const v of db.videos) { try { files[v.file] = fs.statSync(path.join(UPLOAD_DIR, v.file)).size; media += files[v.file]; } catch {} }
-  const known = new Set([...db.videos.map(v => v.file), ...(db.celebPhotos || []).map(p => p.file)]);
+  const known = new Set([...db.videos.map(v => v.file), ...(db.celebPhotos || []).map(p => p.file), ...(db.bigPhotos || []).map(p => p.file)]);
   let other = 0, otherN = 0, celeb = 0;
   for (const n of fs.readdirSync(UPLOAD_DIR)) {
     let sz = 0; try { sz = fs.statSync(path.join(UPLOAD_DIR, n)).size; } catch { continue; }
-    if ((db.celebPhotos || []).some(p => p.file === n)) celeb += sz;
+    if ((db.celebPhotos || []).some(p => p.file === n) || (db.bigPhotos || []).some(p => p.file === n)) celeb += sz;
     else if (!known.has(n)) { other += sz; otherN++; } // listede olmayan (yarım kalmış yükleme vb.)
   }
   const part = d => dirStat(path.join(DATA_DIR, d));
