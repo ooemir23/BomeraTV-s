@@ -1027,7 +1027,7 @@ function bigShow(m, cfg) {
     + (cfg.note ? `<div class="bnote">${esc(cfg.note)}</div>` : '')
     + (info.length ? `<div class="bft">${info.map((t, i) => `<span>${icons[i % 3]} ${esc(t)}</span>`).join('')}</div>` : '<div style="height:1.4vh"></div>') + '</div></div>';
   setTimeout(() => el.classList.add('on'), 60);
-  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; const nx = big.queue.shift(); if (nx) bigShow(nx); else if (big.after) { const f = big.after; big.after = null; f(); } }, 900); }, (cfg.durSec || 15) * 1000);
+  setTimeout(() => { if (big.queue.length) { big.showing = false; bigShow(big.queue.shift()); return; } /* sıradaki maç: arada medya/kampanya görünmesin, kart doğrudan değişir */ el.classList.remove('on'); setTimeout(() => { big.showing = false; camp.showing = false; if (big.after) { const f = big.after; big.after = null; f(); } }, 900); }, (cfg.durSec || 15) * 1000);
 }
 setInterval(() => {
   if (big.showing || big.due || camp.showing || trailerOn || !big.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;

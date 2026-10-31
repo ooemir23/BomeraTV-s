@@ -35,6 +35,9 @@ const MIN = 60 * 1000, HOUR = 60 * MIN;
 let traffic = null; // İBB trafik endeksi: Türkiye'den bağlanan tarayıcıların Worker üzerinden aldığı, Worker'ın imzaladığı değerler
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+// ESPN takım adlarını ASCII verir (Fenerbahce, Besiktas…): Türkçe karakterli hâle çevrilir
+const TR_WORDS = { Fenerbahce: 'Fenerbahçe', Besiktas: 'Beşiktaş', Goztepe: 'Göztepe', Basaksehir: 'Başakşehir', Istanbul: 'İstanbul', Kasimpasa: 'Kasımpaşa', Caykur: 'Çaykur', Genclerbirligi: 'Gençlerbirliği', Karagumruk: 'Karagümrük', Eyupspor: 'Eyüpspor', Umraniyespor: 'Ümraniyespor', Ankaragucu: 'Ankaragücü', Kecioren: 'Keçiören', Keciorengucu: 'Keçiörengücü', Bandirma: 'Bandırma', Corum: 'Çorum', Sanliurfa: 'Şanlıurfa', Igdir: 'Iğdır', Gazisehir: 'Gazişehir', Buyuksehir: 'Büyükşehir', Belediye: 'Belediye', Umraniye: 'Ümraniye', Kayseri: 'Kayseri', Gaziantep: 'Gaziantep', Bodrumspor: 'Bodrum', Rizespor: 'Rizespor', Sivasspor: 'Sivasspor', Genc: 'Genç', Gucu: 'Gücü', Yeni: 'Yeni', Malatyaspor: 'Malatyaspor', Cagdas: 'Çağdaş', Sakaryaspor: 'Sakaryaspor', Eskisehirspor: 'Eskişehirspor', Altinordu: 'Altınordu', Altay: 'Altay', Denizlispor: 'Denizlispor', Samsunspor: 'Samsunspor', Boluspor: 'Boluspor', Menemenspor: 'Menemenspor', Erzurumspor: 'Erzurumspor', Adanaspor: 'Adanaspor', Tuzlaspor: 'Tuzlaspor', Gencler: 'Gençler', Bursaspor: 'Bursaspor', Kirklarelispor: 'Kırklarelispor', Kirikkale: 'Kırıkkale', Usakspor: 'Uşakspor', Sanliurfaspor: 'Şanlıurfaspor', Giresunspor: 'Giresunspor', Pendikspor: 'Pendikspor', Istanbulspor: 'İstanbulspor', Hatayspor: 'Hatayspor' };
+const trTeam = n => String(n || '').replace(/[A-Za-z]+/g, w => TR_WORDS[w] || w);
 function trafficSecret() {
   if (!db.trafficSecret) { db.trafficSecret = crypto.randomBytes(32).toString('hex'); save(); }
   return db.trafficSecret;
@@ -140,7 +143,7 @@ async function refreshStandings() {
       if (ch.length !== 1) { standings.delete(code); return; } // grup/konferans yapılı veya veri yok
       const num = (e, n) => { const x = e.stats.find(s => s.name === n); return x ? (x.displayValue ?? String(x.value)) : ''; };
       const rows = ch[0].standings.entries.map(e => ({
-        rank: Number(num(e, 'rank')), name: e.team.shortDisplayName || e.team.displayName,
+        rank: Number(num(e, 'rank')), name: trTeam(e.team.shortDisplayName || e.team.displayName),
         logo: (e.team.logos || [])[0] ? e.team.logos[0].href : null,
         gp: num(e, 'gamesPlayed'), w: num(e, 'wins'), d: num(e, 'ties'), l: num(e, 'losses'), gd: num(e, 'pointDifferential'), pts: num(e, 'points'),
       })).sort((a, b) => a.rank - b.rank);
@@ -182,8 +185,8 @@ async function refreshMatches() {
           const home = c.find(x => x.homeAway === 'home'), away = c.find(x => x.homeAway === 'away');
           const d = ymd(when);
           out.push({
-            id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName,
-            away: away.team.shortDisplayName || away.team.displayName,
+            id: e.id, league: label, home: trTeam(home.team.shortDisplayName || home.team.displayName),
+            away: trTeam(away.team.shortDisplayName || away.team.displayName),
             ts: when.getTime(), day: d >= today || st !== 'pre' ? (d > today ? 'Yarın' : 'Bugün') : 'Dün', time: hm(when),
             hl: home.team.logo || null, al: away.team.logo || null,
             live: st === 'in', final: st === 'post',
@@ -489,7 +492,7 @@ async function refreshBigMatches() {
         const hb = isBig4(home.team.displayName), ab = isBig4(away.team.displayName);
         const derby = code === 'tur.1' && hb && ab;
         if (!derby && (code === 'tur.1' || !(hb || ab))) continue; // ligde yalnızca derbi, Avrupa'da 4 büyükten biri
-        out.push({ id: e.id, league: label, home: home.team.shortDisplayName || home.team.displayName, away: away.team.shortDisplayName || away.team.displayName, ts: new Date(e.date).getTime(), hl: home.team.logo || null, al: away.team.logo || null, hcol: home.team.color || '', acol: away.team.color || '', hcol2: home.team.alternateColor || '', acol2: away.team.alternateColor || '', derby });
+        out.push({ id: e.id, league: label, home: trTeam(home.team.shortDisplayName || home.team.displayName), away: trTeam(away.team.shortDisplayName || away.team.displayName), ts: new Date(e.date).getTime(), hl: home.team.logo || null, al: away.team.logo || null, hcol: home.team.color || '', acol: away.team.color || '', hcol2: home.team.alternateColor || '', acol2: away.team.alternateColor || '', derby });
       }
     } catch (err) { bigError = err.message; console.error('Büyük maç alınamadı', code, err.message); }
   }
