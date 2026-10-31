@@ -704,7 +704,7 @@ function infoItems() {
   return out;
 }
 let tickSeg = 0, tickInfoPos = 0, segCount = 1, segIsInfo = false, liveLeagues = [];
-const TICK_INFO_N = 6;
+const TICK_INFO_N = 3;
 // Canlı maç varken alt bant bölümlerle döner: lig1 → bilgiler → lig2 → bilgiler …; her bölüm şeritte bir kez kayar, bitince sıradakine geçilir
 function infoWindow(all) { const n = Math.min(TICK_INFO_N, all.length), s = tickInfoPos % all.length; return Array.from({ length: n }, (_, i) => all[(s + i) % all.length]); }
 function setTicker(list) {
@@ -736,7 +736,7 @@ function setTicker(list) {
   document.getElementById('tl').textContent = label;
   const a = document.getElementById('ta'), b = document.getElementById('tb'), track = document.getElementById('ttrack');
   const view = document.getElementById('tview').clientWidth;
-  a.style.paddingLeft = b.style.paddingLeft = seg ? view + 'px' : ''; // bölüm modunda içerik sağdan girer, tekrar etmez
+  a.style.minWidth = b.style.minWidth = seg ? view + 'px' : ''; a.style.paddingLeft = b.style.paddingLeft = seg ? '2vw' : ''; // bölüm modunda içerik tekrar etmez, hemen görünür ve bir kez kayar
   a.innerHTML = items;
   if (seg) b.innerHTML = items;
   else { // tek kopya ekrandan kısaysa çoğalt ki boşluk kalmasın
