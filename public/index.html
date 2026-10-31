@@ -442,6 +442,7 @@ function drawBg(src, iw, ih) {
   const s = Math.max(bgc.width / iw, bgc.height / ih), w = iw * s, hh = ih * s;
   bctx.drawImage(src, (bgc.width - w) / 2, (bgc.height - hh) / 2, w, hh);
 }
+let bgFor = null;
 sizeBg();
 addEventListener('resize', () => { sizeBg(); if (img.style.display === 'block') drawBg(img, img.naturalWidth, img.naturalHeight); });
 img.addEventListener('load', () => drawBg(img, img.naturalWidth, img.naturalHeight));
@@ -449,7 +450,7 @@ img.addEventListener('load', () => drawBg(img, img.naturalWidth, img.naturalHeig
 setInterval(() => {
   if (window.__lite) return;
   const c = curV();
-  if (img.style.display === 'none' && c.style.opacity !== '0' && !c.paused && c.readyState >= 2) drawBg(c, c.videoWidth, c.videoHeight);
+  if (bgFor !== current && img.style.display === 'none' && c.style.opacity !== '0' && !c.paused && c.readyState >= 2 && c.currentTime > 0.4) { bgFor = current; drawBg(c, c.videoWidth, c.videoHeight); } // arka plan bulanıklığı hareketsiz: içerik başına bir kez çizilir
 }, 250);
 els.forEach(e => {
   e.addEventListener('ended', () => { if (e === curV()) next(); });
