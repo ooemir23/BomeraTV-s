@@ -378,6 +378,7 @@ function playTrailer(retry) {
 function next() {
   clearTimeout(timer);
   if (big.due && big.list.length && !big.showing) { big.due = false; els.forEach(v => v.pause()); big.queue = big.list.slice(1); big.after = advance; bigShow(big.list[0]); return; } // büyük maç duyurusu: o anki medya bitince
+  if (camp.due && !camp.showing && !big.showing) { const c = camp.due; camp.due = null; els.forEach(v => v.pause()); camp.after = advance; campShow(c); return; } // kampanya: o anki medya bitince
   advance();
 }
 function advance() {
@@ -1002,7 +1003,7 @@ setInterval(() => {
   }
 }, 10000); // bitiş saati gelince sunucu mesajı beklemeden kapan
 // ---- kampanya kartı: belirli aralıklarla tam kadraj, QR kodlu duyuru ----
-const camp = { list: [], last: {}, showing: false, started: Date.now() };
+const camp = { list: [], last: {}, showing: false, due: null, after: null, started: Date.now() };
 function campShow(c) {
   if (camp.showing || !c) return;
   camp.showing = true; camp.last[c.id] = Date.now();
@@ -1014,7 +1015,7 @@ function campShow(c) {
     + '<h2>' + esc(c.headline) + '</h2><div class="stars">★★★★★</div><div class="sub">' + esc(c.sub) + '</div>' + (c.note ? '<div class="note">' + esc(c.note) + '</div>' : '') + '</div>'
     + '<div class="cr"><div class="qb">' + c.svg + '</div><div class="ql">' + esc(c.qrLabel || '') + '<small>QR KODU TELEFONUNUZLA OKUTUN</small></div></div>';
   setTimeout(() => el.classList.add('on'), 60);
-  setTimeout(() => { el.classList.remove('on'); setTimeout(() => { camp.showing = false; }, 1500); }, (c.durSec || 15) * 1000);
+  setTimeout(() => { if (camp.after) { const f = camp.after; camp.after = null; f(); } el.classList.remove('on'); setTimeout(() => { camp.showing = false; }, 1500); }, (c.durSec || 15) * 1000);
 }
 function setCampaigns(list) { camp.list = list || []; }
 // ---- büyük maç duyurusu: derbi / Avrupa kupası maçından en çok birkaç gün önce, rezervasyon notuyla ----
@@ -1055,10 +1056,10 @@ setInterval(() => {
   } // ilk gösterim açılıştan ~1 dk sonra; birden fazla maç varsa hepsi peş peşe, sırayla
 }, 5000);
 setInterval(() => {
-  if (camp.showing || !camp.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
+  if (camp.showing || camp.due || !camp.list.length || (window.__celeb && document.querySelector('#cphoto.on'))) return;
   for (const c of camp.list) {
     const since = Date.now() - (camp.last[c.id] || camp.started - (c.everyMin || 3) * 60000 + 25000); // ilk gösterim açılıştan ~25 sn sonra
-    if (since >= (c.everyMin || 3) * 60000) { campShow(c); break; }
+    if (since >= (c.everyMin || 3) * 60000) { if (videos.length > 1) camp.due = c; else campShow(c); break; } // medya bitince gösterilir (tek/boş listede hemen)
   }
 }, 5000);
 // ---- kumanda Menü tuşu: sürüm bilgisi ve güncelleme kontrolü (güncelleme bildirimi de burada) ----
