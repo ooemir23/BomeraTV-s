@@ -835,11 +835,11 @@ app.get('/api/admin/leagues', (_, res) => res.json({
   tables: CATALOG.filter(([code, , group]) => group !== 'Avrupa Kupaları' && !NO_TABLE.has(code)).map(([code]) => code),
   hideTables: db.hideTables || [],
 }));
-// Wi-Fi QR'ının altında kayan yazı: elle girilen metin, yoksa QR'daki şifre
+// Wi-Fi QR'ının altında etiketle dönüşümlü gösterilen şifre: elle girilen metin, yoksa QR'daki şifre
 function wifiMarquee(text) {
   if (db.wifiText) return db.wifiText;
   const m = /P:((?:\\.|[^;])*);/.exec(String(text || ''));
-  return m && m[1] ? 'Wi-Fi şifresi: ' + m[1].replace(/\\(.)/g, '$1') : '';
+  return m && m[1] ? m[1].replace(/\\(.)/g, '$1') : '';
 }
 function qrText(b) {
   if (b.kind === 'wifi') {
